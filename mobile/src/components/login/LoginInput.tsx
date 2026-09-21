@@ -14,12 +14,14 @@ interface LoginInputProps extends TextInputProps {
   label?: string;
   iconName: keyof typeof Ionicons.glyphMap;
   isPassword?: boolean;
+  error?: string;
 }
 
 export const LoginInput: React.FC<LoginInputProps> = ({
   label,
   iconName,
   isPassword = false,
+  error,
   value,
   onChangeText,
   placeholder,
@@ -35,6 +37,8 @@ export const LoginInput: React.FC<LoginInputProps> = ({
     inputRef.current?.focus();
   };
 
+  const hasError = Boolean(error);
+
   return (
     <View style={styles.container}>
       {label ? <ThemedText style={styles.label}>{label}</ThemedText> : null}
@@ -43,12 +47,13 @@ export const LoginInput: React.FC<LoginInputProps> = ({
         style={[
           styles.inputContainer,
           isFocused && styles.inputContainerFocused,
+          hasError && styles.inputContainerError,
         ]}
       >
         <Ionicons
           name={iconName}
           size={18}
-          color={isFocused ? '#FF6B00' : '#8A8F9B'}
+          color={hasError ? '#EF4444' : isFocused ? '#FF6B00' : '#8A8F9B'}
           style={styles.leftIcon}
         />
         <TextInput
@@ -82,6 +87,12 @@ export const LoginInput: React.FC<LoginInputProps> = ({
           </TouchableOpacity>
         )}
       </Pressable>
+      {hasError ? (
+        <View style={styles.errorRow}>
+          <Ionicons name="alert-circle" size={13} color="#EF4444" style={styles.errorIcon} />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -116,6 +127,10 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
+  inputContainerError: {
+    borderColor: '#EF4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
   leftIcon: {
     marginRight: 8,
   },
@@ -128,4 +143,19 @@ const styles = StyleSheet.create({
   eyeIconContainer: {
     padding: 4,
   },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    paddingLeft: 4,
+  },
+  errorIcon: {
+    marginRight: 4,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 11.5,
+    fontWeight: '500',
+  },
 });
+

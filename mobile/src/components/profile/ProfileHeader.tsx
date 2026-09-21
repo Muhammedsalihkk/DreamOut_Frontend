@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserProfile } from '@/data/mockData';
 import { useRouter } from 'expo-router';
 
+import { useAuthStore } from '@/store/useAuthStore';
+
 interface ProfileHeaderProps {
   profile: UserProfile;
   isOwnProfile?: boolean;
@@ -26,6 +28,10 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const logout = useAuthStore((state) => state.logout);
+  const user = useAuthStore((state) => state.user);
+
+  const displayName = user?.name || profile.name;
 
   const handleEditProfile = () => {
     Alert.alert('Edit Profile', 'Open edit profile screen.');
@@ -37,10 +43,18 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   const handleMorePress = () => {
     Alert.alert('Options', 'Profile settings and preferences.', [
-      { text: 'Sign Out', style: 'destructive', onPress: () => router.replace('/login') },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: () => {
+          logout();
+          router.replace('/login');
+        },
+      },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
+
 
   const handleAvatarPress = () => {
     Alert.alert('Change Avatar', 'Select a new profile photo.');
@@ -119,7 +133,8 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             <View style={styles.userMetaColumn}>
               <View style={styles.userHeaderRow}>
                 <View style={styles.nameBlock}>
-                  <Text style={styles.nameText}>{profile.name}</Text>
+                  <Text style={styles.nameText}>{displayName}</Text>
+
                   <Text style={styles.usernameText}>@{profile.username}</Text>
                 </View>
 

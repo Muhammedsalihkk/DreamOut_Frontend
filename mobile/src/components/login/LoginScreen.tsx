@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +18,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LoginInput } from './LoginInput';
 import { SocialLoginButton, SocialProvider } from './SocialLoginButton';
 import { TopographicBackground } from './TopographicBackground';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface LoginScreenProps {
   onLoginSuccess?: (email: string) => void;
@@ -30,13 +33,62 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [serverError, setServerError] = useState('');
 
-  // Direct Sign In handler without validation (Navigates directly to Home page)
-  const handleSignIn = () => {
-    if (onLoginSuccess) {
-      onLoginSuccess(email || 'explorer');
+  const { login, isLoading } = useAuthStore();
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (emailError) setEmailError('');
+    if (serverError) setServerError('');
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (passwordError) setPasswordError('');
+    if (serverError) setServerError('');
+  };
+
+  const handleSignIn = async () => {
+    setEmailError('');
+    setPasswordError('');
+    setServerError('');
+
+    let isValid = true;
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
+      setEmailError('Email address is required.');
+      isValid = false;
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        setEmailError('Please enter a valid email address.');
+        isValid = false;
+      }
+    }
+
+    if (!password) {
+      setPasswordError('Password is required.');
+      isValid = false;
+    }
+
+    if (!isValid) return;
+
+    const success = await login({ email: cleanEmail, password });
+    if (success) {
+      if (onLoginSuccess) {
+        onLoginSuccess(cleanEmail);
+      }
+    } else {
+      const errorMsg = useAuthStore.getState().error;
+      setServerError(errorMsg || 'Invalid email or password.');
     }
   };
+
+
 
   const handleSocialLogin = (provider: SocialProvider) => {
     if (onLoginSuccess) {
@@ -128,12 +180,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
                 {/* Inputs */}
                 <LoginInput
-                  placeholder="Email or Username"
+                  placeholder="Email address"
                   iconName="mail-outline"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={handleEmailChange}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  error={emailError}
                 />
 
                 <LoginInput
@@ -141,8 +194,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   iconName="lock-closed-outline"
                   isPassword
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={handlePasswordChange}
+                  error={passwordError}
                 />
+
+                {/* Server Error Banner */}
+                {serverError ? (
+                  <View style={styles.serverErrorBanner}>
+                    <Ionicons name="alert-circle" size={16} color="#EF4444" style={styles.serverErrorIcon} />
+                    <Text style={styles.serverErrorText}>{serverError}</Text>
+                  </View>
+                ) : null}
 
                 {/* Forgot Password */}
                 <TouchableOpacity
@@ -153,20 +215,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                 </TouchableOpacity>
 
+
                 {/* Sign In Button */}
                 <TouchableOpacity
-                  style={styles.signInButton}
+                  style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
                   onPress={handleSignIn}
                   activeOpacity={0.85}
+                  disabled={isLoading}
                 >
-                  <Text style={styles.signInButtonText}>Sign In</Text>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={18}
-                    color="#FFFFFF"
-                    style={styles.buttonIcon}
-                  />
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Text style={styles.signInButtonText}>Sign In</Text>
+                      <Ionicons
+                        name="arrow-forward"
+                        size={18}
+                        color="#FFFFFF"
+                        style={styles.buttonIcon}
+                      />
+                    </>
+                  )}
                 </TouchableOpacity>
+
 
                 {/* Social Login Divider */}
                 <View style={styles.dividerContainer}>
@@ -326,7 +397,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  /* SERVER ERROR BANNER */
+  serverErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginVertical: 6,
+  },
+  serverErrorIcon: {
+    marginRight: 8,
+  },
+  serverErrorText: {
+    color: '#EF4444',
+    fontSize: 12.5,
+    fontWeight: '600',
+    flex: 1,
+  },
+
   /* SIGN IN BUTTON */
+
   signInButton: {
     backgroundColor: '#FF6B00',
     height: 48,

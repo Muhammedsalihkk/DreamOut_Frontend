@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ImageBackground,
   KeyboardAvoidingView,
@@ -18,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { LoginInput } from '@/components/login/LoginInput';
 import { SocialLoginButton, SocialProvider } from '@/components/login/SocialLoginButton';
 import { TopographicBackground } from '@/components/login/TopographicBackground';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -28,39 +30,100 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  // Frontend Validation Handler
-  const handleCreateAccount = () => {
+  // Error States
+  const [fullNameError, setFullNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [serverError, setServerError] = useState('');
+
+  const { register, isLoading } = useAuthStore();
+
+  const handleFullNameChange = (text: string) => {
+    setFullName(text);
+    if (fullNameError) setFullNameError('');
+    if (serverError) setServerError('');
+  };
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (emailError) setEmailError('');
+    if (serverError) setServerError('');
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (passwordError) setPasswordError('');
+    if (serverError) setServerError('');
+  };
+
+  const handleConfirmPasswordChange = (text: string) => {
+    setConfirmPassword(text);
+    if (confirmPasswordError) setConfirmPasswordError('');
+    if (serverError) setServerError('');
+  };
+
+  // Frontend & Backend Validation Handler
+  const handleCreateAccount = async () => {
+    setFullNameError('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
+    setServerError('');
+
+    let isValid = true;
+
     if (!fullName.trim()) {
-      Alert.alert('Validation Error', 'Please enter your Full Name.');
-      return;
+      setFullNameError('Full Name is required.');
+      isValid = false;
     }
-    const cleanUsername = username.trim();
-    if (!cleanUsername || cleanUsername.length < 3) {
-      Alert.alert('Validation Error', 'Username must be at least 3 characters long.');
-      return;
-    }
+
     const cleanEmail = email.trim();
     if (!cleanEmail) {
-      Alert.alert('Validation Error', 'Please enter your Email address.');
-      return;
-    }
-    if (!password || password.length < 8) {
-      Alert.alert('Validation Error', 'Password must be at least 8 characters long.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Validation Error', 'Passwords do not match.');
-      return;
+      setEmailError('Email address is required.');
+      isValid = false;
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        setEmailError('Please enter a valid Email address.');
+        isValid = false;
+      }
     }
 
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    if (!password) {
+      setPasswordError('Password is required.');
+      isValid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.');
+      isValid = false;
+    }
+
+    if (!confirmPassword) {
+      setConfirmPasswordError('Please confirm your password.');
+      isValid = false;
+    } else if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match.');
+      isValid = false;
+    }
+
+    if (!isValid) return;
+
+    const success = await register({
+      name: fullName.trim(),
+      email: cleanEmail,
+      password,
+    });
+
+    if (success) {
       router.replace('/(tabs)' as any);
-    }, 400);
+    } else {
+      const errorMsg = useAuthStore.getState().error;
+      setServerError(errorMsg || 'Could not create account. Please try again.');
+    }
   };
+
+
 
   const handleSocialSignUp = (provider: SocialProvider) => {
     router.replace('/(tabs)' as any);
@@ -131,25 +194,19 @@ export default function SignUpScreen() {
                   placeholder="Full Name"
                   iconName="person-outline"
                   value={fullName}
-                  onChangeText={setFullName}
+                  onChangeText={handleFullNameChange}
                   autoCapitalize="words"
+                  error={fullNameError}
                 />
 
                 <LoginInput
-                  placeholder="Username"
-                  iconName="at-outline"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                />
-
-                <LoginInput
-                  placeholder="Email"
+                  placeholder="Email address"
                   iconName="mail-outline"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={handleEmailChange}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  error={emailError}
                 />
 
                 <LoginInput
@@ -157,7 +214,8 @@ export default function SignUpScreen() {
                   iconName="lock-closed-outline"
                   isPassword
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={handlePasswordChange}
+                  error={passwordError}
                 />
 
                 <LoginInput
@@ -165,27 +223,40 @@ export default function SignUpScreen() {
                   iconName="shield-checkmark-outline"
                   isPassword
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={handleConfirmPasswordChange}
+                  error={confirmPasswordError}
                 />
 
+                {/* Server Error Banner */}
+                {serverError ? (
+                  <View style={styles.serverErrorBanner}>
+                    <Ionicons name="alert-circle" size={16} color="#EF4444" style={styles.serverErrorIcon} />
+                    <Text style={styles.serverErrorText}>{serverError}</Text>
+                  </View>
+                ) : null}
+
+
                 <TouchableOpacity
-                  style={styles.createAccountButton}
+                  style={[styles.createAccountButton, isLoading && { opacity: 0.7 }]}
                   onPress={handleCreateAccount}
                   activeOpacity={0.85}
-                  disabled={loading}
+                  disabled={isLoading}
                 >
-                  <Text style={styles.createAccountButtonText}>
-                    {loading ? 'Creating Account...' : 'Create Account'}
-                  </Text>
-                  {!loading && (
-                    <Ionicons
-                      name="arrow-forward"
-                      size={18}
-                      color="#FFFFFF"
-                      style={styles.buttonIcon}
-                    />
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Text style={styles.createAccountButtonText}>Create Account</Text>
+                      <Ionicons
+                        name="arrow-forward"
+                        size={18}
+                        color="#FFFFFF"
+                        style={styles.buttonIcon}
+                      />
+                    </>
                   )}
                 </TouchableOpacity>
+
 
                 <View style={styles.dividerContainer}>
                   <View style={styles.dividerLine} />
@@ -323,7 +394,28 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginBottom: 10,
   },
+  serverErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginVertical: 6,
+  },
+  serverErrorIcon: {
+    marginRight: 8,
+  },
+  serverErrorText: {
+    color: '#EF4444',
+    fontSize: 12.5,
+    fontWeight: '600',
+    flex: 1,
+  },
   createAccountButton: {
+
     backgroundColor: '#FF6B00',
     height: 48,
     borderRadius: 13,
