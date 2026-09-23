@@ -568,7 +568,12 @@ export default function SpotDetailsScreen() {
               contentContainerStyle={styles.storiesScroll}
             >
               {spot.stories.map((st) => (
-                <TouchableOpacity key={st.id} style={styles.storyAvatarItem} activeOpacity={0.8}>
+                <TouchableOpacity
+                  key={st.id}
+                  style={styles.storyAvatarItem}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/story/s1' as any)}
+                >
                   <View style={styles.storyRing}>
                     <Image source={{ uri: st.avatar }} style={styles.storyAvatarImage} />
                   </View>

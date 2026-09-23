@@ -41,13 +41,13 @@ export default function HomeScreen() {
         {/* 1. Header with Profile & Notification Navigation */}
         <HomeHeader
           onProfilePress={() => router.push('/profile')}
-          onNotificationPress={() => Alert.alert('Notifications', 'No new notifications.')}
+          onNotificationPress={() => router.push('/notifications' as any)}
         />
 
         {/* 2. Stories Section (Positioned directly under Header) */}
         <StoriesSection
           onSeeAllPress={() => Alert.alert('Stories', 'View all travel stories.')}
-          onAddStoryPress={() => Alert.alert('Add Story', 'Capture a new travel moment or route experience.')}
+          onAddStoryPress={() => router.push('/moment/create' as any)}
         />
 
         {/* 3. Journey Updates / Community Feed */}

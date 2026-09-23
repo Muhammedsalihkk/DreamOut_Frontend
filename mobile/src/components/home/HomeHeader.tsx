@@ -14,6 +14,14 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 }) => {
   const router = useRouter();
 
+  const handleNotificationTap = () => {
+    if (onNotificationPress) {
+      onNotificationPress();
+    } else {
+      router.push('/notifications' as any);
+    }
+  };
+
   const handleProfileTap = () => {
     if (onProfilePress) {
       onProfilePress();
@@ -36,7 +44,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         <TouchableOpacity
           style={styles.iconButton}
           activeOpacity={0.7}
-          onPress={onNotificationPress}
+          onPress={handleNotificationTap}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />

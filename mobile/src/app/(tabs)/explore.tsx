@@ -137,12 +137,7 @@ export default function ExploreScreen() {
         <ExploreHeader />
 
         {/* 2. Page Title Block */}
-        <View style={styles.titleBlock}>
-          <Text style={styles.pageTitle}>Explore</Text>
-          <Text style={styles.pageSubtitle}>
-            Find routes, spots and people for your next adventure.
-          </Text>
-        </View>
+  
 
         {/* 3. Prominent Search Bar */}
         <ExploreSearchBar

@@ -89,7 +89,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               <Text style={styles.logoText}>
                 Dream<Text style={styles.logoAccent}>Out</Text>
               </Text>
-              <Text style={styles.taglineText}>EXPLORE BEYOND</Text>
+           
             </View>
 
             <View style={styles.topActions}>

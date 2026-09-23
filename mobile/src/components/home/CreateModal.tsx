@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 
 interface CreateModalProps {
   visible: boolean;
@@ -15,6 +16,8 @@ export const CreateModal: React.FC<CreateModalProps> = ({
   onCreateRoute,
   onCreateSpot,
 }) => {
+  const router = useRouter();
+
   return (
     <Modal
       visible={visible}
@@ -30,13 +33,17 @@ export const CreateModal: React.FC<CreateModalProps> = ({
           <Text style={styles.modalTitle}>Create Content</Text>
           <Text style={styles.modalSubtitle}>Share your travel experiences with the DreamOut community</Text>
 
-          {/* Action Cards */}
+          {/* 1. Create Route */}
           <TouchableOpacity
             style={styles.actionCard}
             activeOpacity={0.8}
             onPress={() => {
               onClose();
-              if (onCreateRoute) onCreateRoute();
+              if (onCreateRoute) {
+                onCreateRoute();
+              } else {
+                router.push('/route/create' as any);
+              }
             }}
           >
             <View style={styles.iconCircle}>
@@ -44,25 +51,68 @@ export const CreateModal: React.FC<CreateModalProps> = ({
             </View>
             <View style={styles.actionTextContainer}>
               <Text style={styles.actionTitle}>Create Route</Text>
-              <Text style={styles.actionDesc}>Build a multi-stop travel itinerary with custom spots & tips</Text>
+              <Text style={styles.actionDesc}>Plan and share your own travel route with amazing places</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#8A8F9B" />
           </TouchableOpacity>
 
+          {/* 2. Add Spot */}
           <TouchableOpacity
             style={styles.actionCard}
             activeOpacity={0.8}
             onPress={() => {
               onClose();
-              if (onCreateSpot) onCreateSpot();
+              if (onCreateSpot) {
+                onCreateSpot();
+              } else {
+                router.push('/create');
+              }
             }}
           >
             <View style={styles.iconCircle}>
               <Ionicons name="location-outline" size={24} color="#FF6B00" />
             </View>
             <View style={styles.actionTextContainer}>
-              <Text style={styles.actionTitle}>Create Spot</Text>
-              <Text style={styles.actionDesc}>Add a unique location, viewpoint, or hidden place to the map</Text>
+              <Text style={styles.actionTitle}>Add Spot</Text>
+              <Text style={styles.actionDesc}>Add a new place to DreamOut</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#8A8F9B" />
+          </TouchableOpacity>
+
+          {/* 3. Share Moment */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            activeOpacity={0.8}
+            onPress={() => {
+              onClose();
+              router.push('/moment/create' as any);
+            }}
+          >
+            <View style={styles.iconCircle}>
+              <Ionicons name="camera-outline" size={24} color="#FF6B00" />
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={styles.actionTitle}>Share Moment</Text>
+              <Text style={styles.actionDesc}>Post a photo, video or note</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#8A8F9B" />
+          </TouchableOpacity>
+
+          {/* 4. Create Story */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            activeOpacity={0.8}
+            onPress={() => {
+              onClose();
+              router.push('/moment/create' as any);
+            }}
+          >
+            <View style={styles.iconCircle}>
+              <Ionicons name="play-circle-outline" size={24} color="#FF6B00" />
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={styles.actionTitle}>Create Story</Text>
+              <Text style={styles.actionDesc}>Share your ongoing journey</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#8A8F9B" />
           </TouchableOpacity>
@@ -118,13 +168,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
   },
   iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 107, 0, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -135,7 +185,7 @@ const styles = StyleSheet.create({
   },
   actionTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     marginBottom: 2,
   },

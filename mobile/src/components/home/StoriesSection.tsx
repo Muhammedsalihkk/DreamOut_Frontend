@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MOCK_STORIES, Story } from '@/data/mockData';
@@ -7,33 +8,32 @@ import { MOCK_STORIES, Story } from '@/data/mockData';
 interface StoriesSectionProps {
   onSeeAllPress?: () => void;
   onAddStoryPress?: () => void;
+  onStoryPress?: (story: Story) => void;
 }
 
 export const StoriesSection: React.FC<StoriesSectionProps> = ({
   onSeeAllPress,
   onAddStoryPress,
+  onStoryPress,
 }) => {
+  const router = useRouter();
+
   const handleStoryTap = (story: Story) => {
-    if (story.isUserStory) {
-      if (onAddStoryPress) {
-        onAddStoryPress();
-      } else {
-        Alert.alert('Add Story', 'Capture a new travel moment or route experience to add to your story.');
-      }
-    } else {
-      Alert.alert(`Travel Story`, `Viewing ${story.title} travel story.`);
+    if (onStoryPress) {
+      onStoryPress(story);
+      return;
     }
+    if (story.isUserStory && onAddStoryPress) {
+      onAddStoryPress();
+      return;
+    }
+    router.push(`/story/${story.id}` as any);
   };
 
   return (
     <View style={styles.container}>
       {/* Section Header */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Stories</Text>
-        <TouchableOpacity onPress={onSeeAllPress} activeOpacity={0.7}>
-          <Text style={styles.seeAllText}>See All →</Text>
-        </TouchableOpacity>
-      </View>
+   
 
       {/* Horizontal Story Bar */}
       <ScrollView

@@ -17,10 +17,14 @@ export default function RootLayout() {
         <Stack.Screen name="signup" />
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="route/create" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="moment/create" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="route/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="journey/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="journey-mode/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="spot/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="story/[id]" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>

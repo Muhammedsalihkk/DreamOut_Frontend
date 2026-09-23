@@ -4,12 +4,35 @@ export interface Category {
   icon: string;
 }
 
+export interface StoryRouteRef {
+  id: string;
+  title: string;
+  image: string;
+  subtitle?: string;
+  placeCount?: number;
+}
+
+export interface StorySegment {
+  id: string;
+  type?: 'image' | 'video';
+  mediaUri: string;
+  duration?: number;
+  title?: string;
+  caption?: string;
+  location?: string;
+  timeAgo?: string;
+  route?: StoryRouteRef;
+}
+
 export interface Story {
   id: string;
   title: string;
   image: string;
   isUserStory?: boolean;
   hasUnseen?: boolean;
+  user?: User;
+  timeAgo?: string;
+  segments?: StorySegment[];
 }
 
 export interface User {
@@ -188,6 +211,9 @@ export interface DetailedRoute {
   exploredPeople: ExploredUser[];
   explorerExperiences: ExplorerExperience[];
   experiences: Experience[];
+  category?: string;
+  difficulty?: string;
+  visibility?: 'Public' | 'Followers' | 'Private';
 }
 
 export interface Spot {
@@ -668,46 +694,264 @@ export const MOCK_STORIES: Story[] = [
   {
     id: 's0',
     title: 'Your Story',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
     isUserStory: true,
+    user: {
+      id: 'user-0',
+      name: 'Alex Rivera',
+      username: 'alex_rivera',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+      isVerified: true,
+    },
+    timeAgo: 'Just now',
+    segments: [
+      {
+        id: 'seg-s0-1',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=85',
+        duration: 5,
+        title: 'Morning mist in Wayanad',
+        caption: 'Starting the early ridge hike before sunrise. Fresh mountain air and absolute silence.',
+        location: 'Wayanad, Kerala',
+        timeAgo: '10m ago',
+        route: {
+          id: 'route-1',
+          title: 'Wayanad Highland Trek',
+          image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=300&q=80',
+          subtitle: '14 km • 5 stops',
+        },
+      },
+    ],
   },
   {
     id: 's1',
     title: 'Nature',
-    image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=300&q=80',
+    image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
     hasUnseen: true,
+    user: {
+      id: 'user-1',
+      name: 'Ananya Sharma',
+      username: 'ananya.hikes',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80',
+      isVerified: true,
+    },
+    timeAgo: '2h ago',
+    segments: [
+      {
+        id: 'seg-s1-1',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=85',
+        duration: 6,
+        title: 'Peak of Chembra Hill',
+        caption: 'Reached the heart-shaped lake after a challenging 3-hour climb! Cloud blanket over the valley.',
+        location: 'Chembra Peak, Wayanad',
+        timeAgo: '2h ago',
+        route: {
+          id: 'route-chembra',
+          title: 'Chembra Peak Expedition',
+          image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=300&q=80',
+          subtitle: '9.2 km • 3 view points',
+        },
+      },
+      {
+        id: 'seg-s1-2',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1542224566-6e85f2e6772f?auto=format&fit=crop&w=1200&q=85',
+        duration: 5,
+        title: 'Forest Stream Crossing',
+        caption: 'Crystal clear spring water along the pine forest trail. Pure serenity.',
+        location: 'Meenmutty Trails, Kerala',
+        timeAgo: '3h ago',
+        route: {
+          id: 'route-chembra',
+          title: 'Chembra Peak Expedition',
+          image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=300&q=80',
+          subtitle: '9.2 km • 3 view points',
+        },
+      },
+    ],
   },
   {
     id: 's2',
     title: 'Routes',
-    image: 'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=300&q=80',
+    image: 'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=800&q=80',
     hasUnseen: true,
+    user: {
+      id: 'user-2',
+      name: 'Arjun Nair',
+      username: 'arjun.travels',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+      isVerified: true,
+    },
+    timeAgo: '4h ago',
+    segments: [
+      {
+        id: 'seg-s2-1',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=85',
+        duration: 5,
+        title: 'Sunset at Varkala Cliff',
+        caption: 'The golden hour light reflecting off the red cliffs of Varkala. Truly unforgettable.',
+        location: 'Varkala Beach Cliff, Kerala',
+        timeAgo: '4h ago',
+        route: {
+          id: 'route-varkala',
+          title: 'Coastal Kerala Cliff Drive',
+          image: 'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=300&q=80',
+          subtitle: '28 km • 6 coastal spots',
+        },
+      },
+      {
+        id: 'seg-s2-2',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=85',
+        duration: 5,
+        title: 'Kappil Backwaters',
+        caption: 'Where the serene lake meets the roaring ocean road.',
+        location: 'Kappil Lake, Kerala',
+        timeAgo: '5h ago',
+        route: {
+          id: 'route-varkala',
+          title: 'Coastal Kerala Cliff Drive',
+          image: 'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=300&q=80',
+          subtitle: '28 km • 6 coastal spots',
+        },
+      },
+    ],
   },
   {
     id: 's3',
     title: 'Spots',
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80',
+    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
     hasUnseen: true,
+    user: {
+      id: 'user-3',
+      name: 'Rohan Verma',
+      username: 'rohan_explores',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80',
+      isVerified: false,
+    },
+    timeAgo: '6h ago',
+    segments: [
+      {
+        id: 'seg-s3-1',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=85',
+        duration: 5,
+        title: 'Hidden Waterfall Oasis',
+        caption: 'Discovered this secluded waterfall deep inside the forest canopy.',
+        location: 'Soochipara Falls, Kerala',
+        timeAgo: '6h ago',
+        route: {
+          id: 'route-waterfall',
+          title: 'Wayanad Waterfalls Circuit',
+          image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80',
+          subtitle: '18 km • 4 waterfalls',
+        },
+      },
+    ],
   },
   {
     id: 's4',
     title: 'Travelers',
-    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80',
     hasUnseen: true,
+    user: {
+      id: 'user-4',
+      name: 'Kavya Patel',
+      username: 'kavya_wanderer',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      isVerified: true,
+    },
+    timeAgo: '8h ago',
+    segments: [
+      {
+        id: 'seg-s4-1',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=1200&q=85',
+        duration: 5,
+        title: 'Campfire under the Stars',
+        caption: 'Overnight camping session at 2,000 meters above sea level.',
+        location: 'Kolukkumalai Estate',
+        timeAgo: '8h ago',
+        route: {
+          id: 'route-kolukku',
+          title: 'Highest Tea Plantation Trail',
+          image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+          subtitle: '12 km • Offroad track',
+        },
+      },
+    ],
   },
   {
     id: 's5',
     title: 'Munnar',
-    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80',
+    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
     hasUnseen: false,
+    user: {
+      id: 'user-5',
+      name: 'Priya Iyer',
+      username: 'priya.mountain',
+      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80',
+      isVerified: false,
+    },
+    timeAgo: '12h ago',
+    segments: [
+      {
+        id: 'seg-s5-1',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=85',
+        duration: 5,
+        title: 'Rolling Tea Gardens',
+        caption: 'Endless green hills covered in morning dew. Munnar is pure magic.',
+        location: 'Munnar, Kerala',
+        timeAgo: '12h ago',
+        route: {
+          id: 'route-munnar',
+          title: 'Munnar Tea Valley Escape',
+          image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80',
+          subtitle: '22 km • 8 viewpoints',
+        },
+      },
+    ],
   },
   {
     id: 's6',
     title: 'Varkala',
-    image: 'https://images.unsplash.com/photo-1511884642898-4c92249e20b6?auto=format&fit=crop&w=300&q=80',
+    image: 'https://images.unsplash.com/photo-1511884642898-4c92249e20b6?auto=format&fit=crop&w=800&q=80',
     hasUnseen: false,
+    user: {
+      id: 'user-6',
+      name: 'Vivek Menon',
+      username: 'vivek_outdoors',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+      isVerified: false,
+    },
+    timeAgo: '1d ago',
+    segments: [
+      {
+        id: 'seg-s6-1',
+        type: 'image',
+        mediaUri: 'https://images.unsplash.com/photo-1511884642898-4c92249e20b6?auto=format&fit=crop&w=1200&q=85',
+        duration: 5,
+        title: 'Black Beach Walk',
+        caption: 'Early morning stroll along the dramatic cliffs and quiet waves.',
+        location: 'Varkala Black Beach, Kerala',
+        timeAgo: '1d ago',
+        route: {
+          id: 'route-varkala',
+          title: 'Coastal Kerala Cliff Drive',
+          image: 'https://images.unsplash.com/photo-1511884642898-4c92249e20b6?auto=format&fit=crop&w=300&q=80',
+          subtitle: '28 km • 6 coastal spots',
+        },
+      },
+    ],
   },
 ];
+
+export const getStoryById = (id: string): Story | undefined => {
+  return MOCK_STORIES.find((s) => s.id === id);
+};
 
 export const MOCK_CATEGORIES: Category[] = [
   { id: 'all', name: 'All', icon: 'compass-outline' },
@@ -1514,3 +1758,244 @@ export const MOCK_DETAILED_SPOT: Spot = {
     isVerified: true,
   },
 };
+
+/* ========================================================================== */
+/* NOTIFICATIONS MOCK DATA                                                   */
+/* ========================================================================== */
+
+export type NotificationFilterType = 'All' | 'Mentions' | 'Follows' | 'Journey' | 'System';
+
+export type NotificationType =
+  | 'like'
+  | 'follow'
+  | 'journey'
+  | 'route_share'
+  | 'comment'
+  | 'route_invitation'
+  | 'story_view'
+  | 'spot_discovery'
+  | 'system';
+
+export interface NotificationMomentData {
+  id: string;
+  spotName: string;
+  routeName?: string;
+  caption: string;
+  mediaUri: string;
+  likesCount: number;
+  user: User;
+  timeAgo: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  category: 'Mentions' | 'Follows' | 'Journey' | 'System';
+  user?: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+    isVerified?: boolean;
+  };
+  title: string;
+  body?: string;
+  targetTitle?: string;
+  timeAgo: string;
+  dateGroup: 'Today' | 'Yesterday' | string;
+  isUnread?: boolean;
+  mediaUri?: string;
+  thumbnailUri?: string;
+  targetType?: 'moment' | 'route' | 'user' | 'spot' | 'story' | 'system';
+  targetId?: string;
+  momentData?: NotificationMomentData;
+}
+
+export const MOCK_NOTIFICATIONS: NotificationItem[] = [
+  // Today Group
+  {
+    id: 'n1',
+    type: 'like',
+    category: 'Mentions',
+    user: {
+      id: 'user-2',
+      name: 'Arjun Nair',
+      username: 'arjun.travels',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
+      isVerified: true,
+    },
+    title: 'Arjun Nair liked your moment',
+    body: '"Sunrise at Kolukkumalai was unreal!"',
+    timeAgo: '2m ago',
+    dateGroup: 'Today',
+    isUnread: true,
+    thumbnailUri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+    targetType: 'moment',
+    targetId: 'm-kolukkumalai',
+    momentData: {
+      id: 'm-kolukkumalai',
+      spotName: 'Kolukkumalai View Point',
+      routeName: 'Munnar Peak Trail',
+      caption: 'Sunrise at Kolukkumalai was unreal!',
+      mediaUri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80',
+      likesCount: 12,
+      user: {
+        id: 'user-0',
+        name: 'Alex Rivera',
+        username: 'alex_rivera',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+      },
+      timeAgo: '2m ago',
+    },
+  },
+  {
+    id: 'n2',
+    type: 'follow',
+    category: 'Follows',
+    user: {
+      id: 'user-3',
+      name: 'Sara Thomas',
+      username: 'sara_trails',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+      isVerified: true,
+    },
+    title: 'Sara Thomas started following you',
+    timeAgo: '12m ago',
+    dateGroup: 'Today',
+    isUnread: true,
+    targetType: 'user',
+    targetId: 'user-3',
+  },
+  {
+    id: 'n3',
+    type: 'journey',
+    category: 'Journey',
+    user: {
+      id: 'user-5',
+      name: 'Priya Iyer',
+      username: 'priya.mountain',
+      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80',
+    },
+    title: 'Your moment was added to Tea Gardens Trail',
+    body: 'Munnar Peak Trail',
+    timeAgo: '28m ago',
+    dateGroup: 'Today',
+    isUnread: true,
+    thumbnailUri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80',
+    targetType: 'route',
+    targetId: 'route-munnar',
+  },
+  {
+    id: 'n4',
+    type: 'route_share',
+    category: 'Journey',
+    user: {
+      id: 'user-4',
+      name: 'Rohit Sharma',
+      username: 'rohit_trails',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
+    },
+    title: 'Rohit shared your route',
+    body: '"Saving this for my next trip."',
+    timeAgo: '1h ago',
+    dateGroup: 'Today',
+    isUnread: false,
+    thumbnailUri: 'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=300&q=80',
+    targetType: 'route',
+    targetId: 'route-varkala',
+  },
+  {
+    id: 'n5',
+    type: 'comment',
+    category: 'Mentions',
+    user: {
+      id: 'user-6',
+      name: 'Meera Krishnan',
+      username: 'meera.explore',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    },
+    title: 'Meera commented on your moment',
+    body: '"What a view! 😍"',
+    timeAgo: '1h ago',
+    dateGroup: 'Today',
+    isUnread: false,
+    thumbnailUri: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=300&q=80',
+    targetType: 'moment',
+    targetId: 'm-chembra',
+    momentData: {
+      id: 'm-chembra',
+      spotName: 'Chembra Heart Lake',
+      routeName: 'Chembra Peak Expedition',
+      caption: 'What a view! Cloud blanket over the valley 😍',
+      mediaUri: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
+      likesCount: 24,
+      user: {
+        id: 'user-0',
+        name: 'Alex Rivera',
+        username: 'alex_rivera',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+      },
+      timeAgo: '1h ago',
+    },
+  },
+
+  // Yesterday Group
+  {
+    id: 'n6',
+    type: 'route_invitation',
+    category: 'Journey',
+    user: {
+      id: 'user-7',
+      name: 'Faisal Khan',
+      username: 'faisal_treks',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+    },
+    title: 'Faisal invited you to explore a route',
+    targetTitle: 'Wayanad Hidden Gems',
+    timeAgo: 'Yesterday, 7:24 PM',
+    dateGroup: 'Yesterday',
+    isUnread: false,
+    thumbnailUri: 'https://images.unsplash.com/photo-1542224566-6e85f2e6772f?auto=format&fit=crop&w=300&q=80',
+    targetType: 'route',
+    targetId: 'route-chembra',
+  },
+  {
+    id: 'n7',
+    type: 'story_view',
+    category: 'Journey',
+    title: 'Your story got 50+ views',
+    body: 'Travelers are loving your Wayanad mist updates!',
+    timeAgo: 'Yesterday, 5:18 PM',
+    dateGroup: 'Yesterday',
+    isUnread: false,
+    thumbnailUri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80',
+    targetType: 'story',
+    targetId: 's0',
+  },
+  {
+    id: 'n8',
+    type: 'spot_discovery',
+    category: 'Journey',
+    title: 'New spot near you',
+    targetTitle: 'Kakkayam Dam',
+    timeAgo: 'Yesterday, 1:03 PM',
+    dateGroup: 'Yesterday',
+    isUnread: false,
+    thumbnailUri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=300&q=80',
+    targetType: 'spot',
+    targetId: 'spot-kakkayam',
+  },
+
+  // Older Group
+  {
+    id: 'n9',
+    type: 'system',
+    category: 'System',
+    title: 'System Update',
+    body: 'New features are now available in DreamOut! Explore interactive story views and route invitations.',
+    timeAgo: '18 Sep, 10:12 AM',
+    dateGroup: '18 Sep 2026',
+    isUnread: false,
+    targetType: 'system',
+  },
+];

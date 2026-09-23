@@ -35,7 +35,7 @@ export const ExploreHeader: React.FC<ExploreHeaderProps> = ({
         <Text style={styles.logoText}>
           Dream<Text style={styles.logoAccent}>Out</Text>
         </Text>
-        <Text style={styles.taglineText}>EXPLORE BEYOND</Text>
+    
       </View>
 
       {/* Location Selector Button */}

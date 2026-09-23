@@ -28,6 +28,8 @@ import {
   ExplorerExperience,
 } from '@/data/mockData';
 
+import { useRouteStore } from '@/store/useRouteStore';
+
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type TabType = 'overview' | 'places' | 'photos' | 'experiences';
@@ -38,8 +40,8 @@ export default function RouteDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  // Detailed Route data
-  const route: DetailedRoute = MOCK_DETAILED_ROUTE;
+  const getRouteById = useRouteStore((state) => state.getRouteById);
+  const route: DetailedRoute = (id ? getRouteById(id) : null) || MOCK_DETAILED_ROUTE;
 
   // Local state
   const [activeTab, setActiveTab] = useState<TabType>('overview');
