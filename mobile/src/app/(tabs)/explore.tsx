@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   SafeAreaView,
@@ -10,6 +10,7 @@ import {
   Alert,
   StatusBar,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -21,7 +22,9 @@ import {
   Route,
   Spot,
   ExploreUser,
+  DetailedRoute,
 } from '@/data/mockData';
+import { useRouteStore } from '@/store/useRouteStore';
 
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
 import { ExploreSearchBar } from '@/components/explore/ExploreSearchBar';
@@ -36,6 +39,12 @@ export type ExploreFilterType = 'popular' | 'nearby' | 'latest' | 'mostExplored'
 export default function ExploreScreen() {
   const router = useRouter();
 
+  // Route store (connected to backend)
+  const storeRoutes = useRouteStore((state) => state.routes);
+  const storeSpots = useRouteStore((state) => state.spots);
+  const isLoading = useRouteStore((state) => state.isLoading);
+  const fetchFromBackend = useRouteStore((state) => state.fetchFromBackend);
+
   // State management for search, category, tab switcher, filter chip, sort option
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -43,9 +52,50 @@ export default function ExploreScreen() {
   const [activeFilter, setActiveFilter] = useState<ExploreFilterType>('popular');
   const [sortOption, setSortOption] = useState<'popular' | 'latest' | 'mostExplored' | 'nearby'>('popular');
 
+  // Combined routes: prioritize real store/backend routes + fallback explore routes
+  const combinedRoutes = useMemo(() => {
+    const mappedStoreRoutes: Route[] = storeRoutes.map((r: DetailedRoute) => ({
+      id: String(r.id),
+      title: r.title,
+      image:
+        r.coverImage ||
+        (r.photos && r.photos[0]) ||
+        'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
+      creator: r.creator || {
+        id: 'u1',
+        name: 'Explorer',
+        username: 'explorer',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      },
+      description: r.description || r.shortDescription || '',
+      location: r.location,
+      category: r.category,
+      likesCount: r.likesCount || 0,
+      commentsCount: r.commentsCount || 0,
+      completedCount: r.exploredCount || 0,
+      timeAgo: r.postedTimeAgo || 'Recently',
+      imageCount: r.imageCount || (r.photos ? r.photos.length : 1),
+    }));
+
+    const storeIds = new Set(mappedStoreRoutes.map((r) => r.id));
+    const remainingMocks = MOCK_ALL_EXPLORE_ROUTES.filter((r) => !storeIds.has(r.id));
+    return [...mappedStoreRoutes, ...remainingMocks];
+  }, [storeRoutes]);
+
+  // Combined spots: prioritize real store/backend spots + mock spots
+  const combinedSpots = useMemo(() => {
+    if (!storeSpots || storeSpots.length === 0) return MOCK_ALL_EXPLORE_SPOTS;
+    const storeSpotIds = new Set(storeSpots.map((s) => s.id));
+    const storeSpotNames = new Set(storeSpots.map((s) => s.name.toLowerCase().trim()));
+    const remainingMocks = MOCK_ALL_EXPLORE_SPOTS.filter(
+      (s) => !storeSpotIds.has(s.id) && !storeSpotNames.has(s.name.toLowerCase().trim())
+    );
+    return [...storeSpots, ...remainingMocks];
+  }, [storeSpots]);
+
   // Filtered & Sorted Routes
   const filteredRoutes = useMemo(() => {
-    return MOCK_ALL_EXPLORE_ROUTES.filter((r) => {
+    return combinedRoutes.filter((r) => {
       const matchesSearch =
         searchQuery.trim() === '' ||
         r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -67,11 +117,11 @@ export default function ExploreScreen() {
       }
       return 0;
     });
-  }, [searchQuery, selectedCategory, sortOption, activeFilter]);
+  }, [combinedRoutes, searchQuery, selectedCategory, sortOption, activeFilter]);
 
   // Filtered Spots
   const filteredSpots = useMemo(() => {
-    return MOCK_ALL_EXPLORE_SPOTS.filter((s) => {
+    return combinedSpots.filter((s) => {
       const matchesSearch =
         searchQuery.trim() === '' ||
         (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -85,7 +135,7 @@ export default function ExploreScreen() {
 
       return matchesSearch && matchesCategory;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [combinedSpots, searchQuery, selectedCategory]);
 
   // Filtered People
   const filteredPeople = useMemo(() => {
@@ -132,6 +182,14 @@ export default function ExploreScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={fetchFromBackend}
+            tintColor="#FF6B00"
+            colors={['#FF6B00']}
+          />
+        }
       >
         {/* 1. Header with Location Selector */}
         <ExploreHeader />

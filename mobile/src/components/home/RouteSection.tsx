@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { MOCK_ROUTES, Route } from '@/data/mockData';
+import { useRouteStore } from '@/store/useRouteStore';
 
 interface RouteSectionProps {
   onSeeAllPress?: () => void;
@@ -14,6 +15,37 @@ export const RouteSection: React.FC<RouteSectionProps> = ({
   onRoutePress,
 }) => {
   const router = useRouter();
+  const storeRoutes = useRouteStore((state) => state.routes);
+
+  const displayRoutes: Route[] = useMemo(() => {
+    const mappedStoreRoutes: Route[] = storeRoutes.map((r) => ({
+      id: String(r.id),
+      title: r.title,
+      image:
+        r.coverImage ||
+        (r.photos && r.photos[0]) ||
+        'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
+      creator: r.creator || {
+        id: 'u1',
+        name: 'Explorer',
+        username: 'explorer',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      },
+      description: r.description || r.shortDescription || '',
+      location: r.location,
+      category: r.category,
+      likesCount: r.likesCount || 0,
+      commentsCount: r.commentsCount || 0,
+      completedCount: r.exploredCount || 0,
+      timeAgo: r.postedTimeAgo || 'Recently',
+      imageCount: r.imageCount || (r.photos ? r.photos.length : 1),
+    }));
+
+    const storeIds = new Set(mappedStoreRoutes.map((r) => r.id));
+    const remainingMock = MOCK_ROUTES.filter((r) => !storeIds.has(r.id));
+    return [...mappedStoreRoutes, ...remainingMock];
+  }, [storeRoutes]);
+
   return (
     <View style={styles.container}>
       {/* Section Header */}
@@ -30,7 +62,7 @@ export const RouteSection: React.FC<RouteSectionProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {MOCK_ROUTES.map((route: Route) => (
+        {displayRoutes.map((route: Route) => (
           <TouchableOpacity
             key={route.id}
             style={styles.card}

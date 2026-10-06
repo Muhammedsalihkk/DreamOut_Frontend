@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { MOCK_SPOTS, Spot } from '@/data/mockData';
+import { useRouteStore } from '@/store/useRouteStore';
 
 interface SpotSectionProps {
   onSeeAllPress?: () => void;
@@ -14,6 +15,14 @@ export const SpotSection: React.FC<SpotSectionProps> = ({
   onSpotPress,
 }) => {
   const router = useRouter();
+  const storeSpots = useRouteStore((state) => state.spots);
+
+  const displaySpots = useMemo(() => {
+    if (storeSpots && storeSpots.length > 0) {
+      return storeSpots;
+    }
+    return MOCK_SPOTS;
+  }, [storeSpots]);
 
   return (
     <View style={styles.container}>
@@ -31,7 +40,7 @@ export const SpotSection: React.FC<SpotSectionProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {MOCK_SPOTS.map((spot: Spot) => (
+        {displaySpots.map((spot: Spot) => (
           <TouchableOpacity
             key={spot.id}
             style={styles.card}

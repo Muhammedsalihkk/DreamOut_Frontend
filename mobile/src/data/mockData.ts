@@ -243,6 +243,8 @@ export interface Spot {
   routesContaining?: { id: string; title: string; image: string; placesCount: number; distance: string; duration: string }[];
   nearbySpotsList?: { id: string; name: string; image: string; distanceAway: string; category: string }[];
   stories?: { id: string; name: string; avatar: string }[];
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Experience {

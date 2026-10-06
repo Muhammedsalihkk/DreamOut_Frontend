@@ -27,6 +27,7 @@ import {
   Spot,
   JourneyMomentItem,
 } from '@/data/mockData';
+import { useRouteStore } from '@/store/useRouteStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,8 +36,9 @@ export default function SpotDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  // Find target spot or default to rich detailed spot
-  const matchedSpot = MOCK_SPOTS.find((s) => s.id === id);
+  // Find target spot from store/backend or fallback to rich detailed spot
+  const getSpotById = useRouteStore((state) => state.getSpotById);
+  const matchedSpot = (id ? getSpotById(id) : null) || MOCK_SPOTS.find((s) => s.id === id);
   const spot: Spot = {
     ...MOCK_DETAILED_SPOT,
     ...(matchedSpot || {}),

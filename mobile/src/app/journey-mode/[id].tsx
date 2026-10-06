@@ -18,6 +18,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 
 import {
   MOCK_DETAILED_ROUTE,
@@ -84,24 +85,93 @@ export default function JourneyModeScreen() {
     }
   };
 
-  const openCaptureFlow = (type: MomentType = 'photo') => {
-    setCaptureType(type);
-    setCaptureStep('capture');
-    setCaptionText('');
-    if (type === 'photo') {
-      setCapturedMediaUri(currentSpot.image);
-    } else if (type === 'video') {
-      setCapturedMediaUri(
-        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80'
-      );
-    } else {
-      setCapturedMediaUri(null);
+  const launchNativeCamera = async (type: MomentType = 'photo') => {
+    if (type === 'note') {
+      setCaptureType('note');
+      setCaptureStep('capture');
+      setIsCaptureModalVisible(true);
+      return;
     }
-    setIsCaptureModalVisible(true);
+
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Camera Permission Required',
+          'DreamOut needs access to your device camera to capture live moments on your route.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: type === 'video' ? ['videos'] : ['images'],
+        allowsEditing: true,
+        aspect: [4, 5],
+        quality: 0.9,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        setCapturedMediaUri(uri);
+        setCaptureType(type);
+        setCaptureStep('share');
+        setIsCaptureModalVisible(true);
+      }
+    } catch (err) {
+      console.error('Error opening camera:', err);
+      Alert.alert('Camera Error', 'Could not open mobile camera on this device.');
+    }
+  };
+
+  const pickFromGallery = async (type: MomentType = 'photo') => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Photo Library Permission Needed',
+          'DreamOut needs access to your photos to import moments from your gallery.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: type === 'video' ? ['videos'] : ['images'],
+        allowsEditing: true,
+        aspect: [4, 5],
+        quality: 0.9,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setCapturedMediaUri(result.assets[0].uri);
+        setCaptureType(type);
+        setCaptureStep('share');
+        setIsCaptureModalVisible(true);
+      }
+    } catch (err) {
+      console.error('Error picking from gallery:', err);
+    }
+  };
+
+  const openCaptureFlow = async (type: MomentType = 'photo') => {
+    setCaptureType(type);
+    setCaptionText('');
+    if (type === 'note') {
+      setCapturedMediaUri(null);
+      setCaptureStep('capture');
+      setIsCaptureModalVisible(true);
+    } else {
+      await launchNativeCamera(type);
+    }
   };
 
   const handleTakeSnapshot = () => {
-    setCaptureStep('share');
+    if (captureType === 'note') {
+      setCaptureStep('share');
+    } else {
+      launchNativeCamera(captureType);
+    }
   };
 
   const handleSaveMoment = () => {
@@ -310,16 +380,30 @@ export default function JourneyModeScreen() {
               {/* 4. CAPTURE MOMENT — PRIMARY PROMINENT CTA         */}
               {/* ================================================== */}
               <View style={styles.captureCtaContainer}>
-                <TouchableOpacity
-                  style={styles.primaryCaptureBtn}
-                  activeOpacity={0.88}
-                  onPress={() => openCaptureFlow('photo')}
-                >
-                  <View style={styles.cameraIconCircle}>
-                    <Ionicons name="camera" size={24} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.primaryCaptureText}>📸 Capture Moment</Text>
-                </TouchableOpacity>
+                {/* Primary Dual CTA: Open Camera & Import from Gallery */}
+                <View style={styles.dualCaptureActionRow}>
+                  <TouchableOpacity
+                    style={styles.primaryCaptureBtn}
+                    activeOpacity={0.88}
+                    onPress={() => openCaptureFlow('photo')}
+                  >
+                    <View style={styles.cameraIconCircle}>
+                      <Ionicons name="camera" size={20} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.primaryCaptureText}>Capture Moment</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.importGalleryCtaBtn}
+                    activeOpacity={0.85}
+                    onPress={() => pickFromGallery('photo')}
+                  >
+                    <View style={styles.galleryIconCircle}>
+                      <Ionicons name="images" size={18} color="#FF6B00" />
+                    </View>
+                    <Text style={styles.importGalleryCtaText}>From Gallery</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {/* Quick Capture Options */}
                 <View style={styles.quickCaptureRow}>
@@ -328,8 +412,17 @@ export default function JourneyModeScreen() {
                     activeOpacity={0.8}
                     onPress={() => openCaptureFlow('photo')}
                   >
-                    <Ionicons name="image-outline" size={14} color="#FF6B00" />
-                    <Text style={styles.quickCapText}>Photo</Text>
+                    <Ionicons name="camera-outline" size={14} color="#FF6B00" />
+                    <Text style={styles.quickCapText}>Camera</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickCapPill}
+                    activeOpacity={0.8}
+                    onPress={() => pickFromGallery('photo')}
+                  >
+                    <Ionicons name="images-outline" size={14} color="#FF6B00" />
+                    <Text style={styles.quickCapText}>Gallery</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -437,8 +530,17 @@ export default function JourneyModeScreen() {
           activeOpacity={0.85}
           onPress={() => setIsMapModalVisible(true)}
         >
-          <Ionicons name="map-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.viewRouteSecText}>View Route</Text>
+          <Ionicons name="map-outline" size={17} color="#FFFFFF" style={{ marginRight: 5 }} />
+          <Text style={styles.viewRouteSecText}>Route</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.galleryBottomBarBtn}
+          activeOpacity={0.85}
+          onPress={() => pickFromGallery('photo')}
+        >
+          <Ionicons name="images-outline" size={17} color="#FF6B00" style={{ marginRight: 5 }} />
+          <Text style={styles.galleryBottomBarText}>Gallery</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -619,7 +721,10 @@ export default function JourneyModeScreen() {
               <View style={styles.captureTypeTabs}>
                 <TouchableOpacity
                   style={[styles.captureTypeBtn, captureType === 'photo' && styles.captureTypeBtnActive]}
-                  onPress={() => openCaptureFlow('photo')}
+                  onPress={() => {
+                    setCaptureType('photo');
+                    launchNativeCamera('photo');
+                  }}
                 >
                   <Text style={[styles.captureTypeText, captureType === 'photo' && styles.captureTypeTextActive]}>
                     Photo
@@ -628,7 +733,10 @@ export default function JourneyModeScreen() {
 
                 <TouchableOpacity
                   style={[styles.captureTypeBtn, captureType === 'video' && styles.captureTypeBtnActive]}
-                  onPress={() => openCaptureFlow('video')}
+                  onPress={() => {
+                    setCaptureType('video');
+                    launchNativeCamera('video');
+                  }}
                 >
                   <Text style={[styles.captureTypeText, captureType === 'video' && styles.captureTypeTextActive]}>
                     Video
@@ -637,7 +745,10 @@ export default function JourneyModeScreen() {
 
                 <TouchableOpacity
                   style={[styles.captureTypeBtn, captureType === 'note' && styles.captureTypeBtnActive]}
-                  onPress={() => openCaptureFlow('note')}
+                  onPress={() => {
+                    setCaptureType('note');
+                    setCapturedMediaUri(null);
+                  }}
                 >
                   <Text style={[styles.captureTypeText, captureType === 'note' && styles.captureTypeTextActive]}>
                     Note
@@ -648,7 +759,47 @@ export default function JourneyModeScreen() {
               {/* Viewfinder Preview */}
               <View style={styles.viewfinderBox}>
                 {captureType !== 'note' && capturedMediaUri ? (
-                  <Image source={{ uri: capturedMediaUri }} style={styles.viewfinderImage} />
+                  <TouchableOpacity
+                    style={{ flex: 1, position: 'relative' }}
+                    activeOpacity={0.9}
+                    onPress={() => launchNativeCamera(captureType)}
+                  >
+                    <Image source={{ uri: capturedMediaUri }} style={styles.viewfinderImage} />
+                    <View style={styles.viewfinderTapOverlay}>
+                      <Ionicons name="camera" size={18} color="#FFFFFF" />
+                      <Text style={styles.viewfinderTapText}>Tap to open camera</Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : captureType !== 'note' ? (
+                  <View style={styles.openCameraPrompt}>
+                    <View style={styles.openCameraIconCircle}>
+                      <Ionicons name="camera" size={34} color="#FF6B00" />
+                    </View>
+                    <Text style={styles.openCameraPromptTitle}>Capture or Import Moment</Text>
+                    <Text style={styles.openCameraPromptSub}>
+                      Take a live photo with camera or import directly from your photo gallery
+                    </Text>
+
+                    <View style={styles.promptActionButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.promptPrimaryCameraBtn}
+                        activeOpacity={0.85}
+                        onPress={() => launchNativeCamera(captureType)}
+                      >
+                        <Ionicons name="camera" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.promptPrimaryCameraText}>Open Camera</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.promptSecondaryGalleryBtn}
+                        activeOpacity={0.85}
+                        onPress={() => pickFromGallery(captureType)}
+                      >
+                        <Ionicons name="images-outline" size={17} color="#FF6B00" style={{ marginRight: 6 }} />
+                        <Text style={styles.promptSecondaryGalleryText}>Import Gallery</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 ) : (
                   <View style={styles.noteInputViewfinder}>
                     <Ionicons name="create-outline" size={28} color="#FF6B00" style={{ marginBottom: 8 }} />
@@ -664,14 +815,44 @@ export default function JourneyModeScreen() {
                 )}
               </View>
 
-              {/* Shutter Action Button */}
-              <TouchableOpacity
-                style={styles.shutterOuterCircle}
-                activeOpacity={0.8}
-                onPress={handleTakeSnapshot}
-              >
-                <View style={styles.shutterInnerCircle} />
-              </TouchableOpacity>
+              {/* Shutter Action & Gallery Shortcuts */}
+              {captureType !== 'note' ? (
+                <View style={styles.shutterRow}>
+                  <TouchableOpacity
+                    style={styles.galleryShortcutBtn}
+                    onPress={() => pickFromGallery(captureType)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="images" size={22} color="#FFFFFF" />
+                    <Text style={styles.galleryShortcutText}>Gallery</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.shutterOuterCircle}
+                    activeOpacity={0.8}
+                    onPress={handleTakeSnapshot}
+                  >
+                    <View style={styles.shutterInnerCircle} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.galleryShortcutBtn}
+                    onPress={() => launchNativeCamera(captureType)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="camera-reverse" size={22} color="#FFFFFF" />
+                    <Text style={styles.galleryShortcutText}>Camera</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.continueNoteBtn}
+                  onPress={() => setCaptureStep('share')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.continueNoteText}>Continue to Share →</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             /* STEP 2: SHARE & SAVE INTERFACE */
@@ -683,6 +864,24 @@ export default function JourneyModeScreen() {
               {capturedMediaUri && (
                 <View style={styles.sharePreviewBox}>
                   <Image source={{ uri: capturedMediaUri }} style={styles.sharePreviewImage} />
+                  <View style={styles.previewActionRow}>
+                    <TouchableOpacity
+                      style={styles.previewActionBtn}
+                      activeOpacity={0.8}
+                      onPress={() => launchNativeCamera(captureType)}
+                    >
+                      <Ionicons name="camera-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.previewActionBtnText}>Retake Photo</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.previewActionBtn}
+                      activeOpacity={0.8}
+                      onPress={() => pickFromGallery(captureType)}
+                    >
+                      <Ionicons name="images-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.previewActionBtnText}>Choose Gallery</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
 
@@ -972,32 +1171,62 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     gap: 10,
   },
+  dualCaptureActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   primaryCaptureBtn: {
+    flex: 1.25,
     backgroundColor: '#FF6B00',
-    height: 52,
-    borderRadius: 26,
+    height: 50,
+    borderRadius: 25,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     shadowColor: '#FF6B00',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 5,
   },
   cameraIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryCaptureText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '800',
+  },
+  importGalleryCtaBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.4)',
+    height: 50,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  galleryIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 107, 0, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  importGalleryCtaText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   quickCaptureRow: {
     flexDirection: 'row',
@@ -1248,8 +1477,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  galleryBottomBarBtn: {
+    paddingHorizontal: 16,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryBottomBarText: {
+    color: '#FF6B00',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
   capturePrimaryBarBtn: {
-    flex: 1.4,
+    flex: 1.2,
     height: 48,
     borderRadius: 24,
     backgroundColor: '#FF6B00',
@@ -1526,6 +1771,124 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     flex: 1,
   },
+  openCameraPrompt: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#12141C',
+  },
+  openCameraIconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(255, 107, 0, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.3)',
+  },
+  openCameraPromptTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  openCameraPromptSub: {
+    color: '#8A8F9B',
+    fontSize: 12.5,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  promptActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+    width: '100%',
+    paddingHorizontal: 8,
+  },
+  promptPrimaryCameraBtn: {
+    flex: 1,
+    backgroundColor: '#FF6B00',
+    height: 44,
+    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promptPrimaryCameraText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  promptSecondaryGalleryBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.35)',
+    height: 44,
+    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promptSecondaryGalleryText: {
+    color: '#FF6B00',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  viewfinderTapOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  viewfinderTapText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  shutterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 24,
+  },
+  galleryShortcutBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  galleryShortcutText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  continueNoteBtn: {
+    backgroundColor: '#FF6B00',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  continueNoteText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   shutterOuterCircle: {
     width: 72,
     height: 72,
@@ -1553,10 +1916,36 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#14161F',
+    position: 'relative',
   },
   sharePreviewImage: {
     width: '100%',
     height: '100%',
+  },
+  previewActionRow: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  previewActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  previewActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   captionInputBlock: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',

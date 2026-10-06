@@ -14,11 +14,13 @@ import {
   Switch,
   Dimensions,
   Pressable,
+  Alert,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 
 import { useMomentStore, CreatedMoment } from '@/store/useMomentStore';
 import { useRouteStore } from '@/store/useRouteStore';
@@ -157,10 +159,73 @@ export default function CreateMomentScreen() {
     router.back();
   };
 
+  const launchNativeCamera = async (type: 'photo' | 'video' = 'photo') => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Camera Permission Required',
+          'DreamOut needs camera permission to capture photos and videos directly with your device.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: type === 'video' ? ['videos'] : ['images'],
+        allowsEditing: true,
+        aspect: [4, 5],
+        quality: 0.9,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedMediaUri(result.assets[0].uri);
+        setMomentType(type);
+        setCurrentView('edit');
+      }
+    } catch (err) {
+      console.error('Error opening camera:', err);
+      Alert.alert('Camera Error', 'Could not open mobile camera on this device.');
+    }
+  };
+
+  const pickFromGallery = async (type: 'photo' | 'video' = 'photo') => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Photo Library Permission Needed',
+          'DreamOut needs access to your photos to choose an existing image.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: type === 'video' ? ['videos'] : ['images'],
+        allowsEditing: true,
+        aspect: [4, 5],
+        quality: 0.9,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedMediaUri(result.assets[0].uri);
+        setMomentType(type);
+        setCurrentView('edit');
+      }
+    } catch (err) {
+      console.error('Error picking from gallery:', err);
+    }
+  };
+
   // Launch Capture Mode
-  const handleStartCapture = (type: 'photo' | 'video' | 'note') => {
+  const handleStartCapture = async (type: 'photo' | 'video' | 'note') => {
     setMomentType(type);
-    setCurrentView('camera');
+    if (type === 'note') {
+      setCurrentView('camera');
+      return;
+    }
+    await launchNativeCamera(type);
   };
 
   // Select Journey Shortcut
@@ -169,18 +234,15 @@ export default function CreateMomentScreen() {
     setSelectedSpot(spotMatch);
     setSelectedRoute({ id: j.routeId, title: j.routeTitle, placesCount: 6 });
     setMomentType('photo');
-    setCurrentView('camera');
+    launchNativeCamera('photo');
   };
 
   // Capture Media Action
-  const handleCaptureAction = () => {
+  const handleCaptureAction = async () => {
     if (momentType === 'note') {
       setCurrentView('share-form');
     } else {
-      // Pick next photo in preset gallery for simulation
-      const nextIdx = (SAMPLE_MOMENT_PHOTOS.indexOf(selectedMediaUri) + 1) % SAMPLE_MOMENT_PHOTOS.length;
-      setSelectedMediaUri(SAMPLE_MOMENT_PHOTOS[nextIdx]);
-      setCurrentView('edit');
+      await launchNativeCamera(momentType as 'photo' | 'video');
     }
   };
 
@@ -309,6 +371,22 @@ export default function CreateMomentScreen() {
               <Ionicons name="chevron-forward" size={20} color="#8A8F9B" />
             </TouchableOpacity>
 
+            {/* Creation Option 4: Choose from Gallery */}
+            <TouchableOpacity
+              style={styles.secondaryOptionCard}
+              activeOpacity={0.85}
+              onPress={() => pickFromGallery('photo')}
+            >
+              <View style={styles.secondaryIconCircle}>
+                <Ionicons name="images-outline" size={24} color="#FFFFFF" />
+              </View>
+              <View style={styles.optionTextCol}>
+                <Text style={styles.secondaryOptionTitle}>🖼️ Choose from Gallery</Text>
+                <Text style={styles.secondaryOptionDesc}>Pick an existing photo or video</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#8A8F9B" />
+            </TouchableOpacity>
+
             {/* FROM YOUR JOURNEYS SECTION */}
             <View style={styles.journeysHeaderRow}>
               <Text style={styles.journeysSectionTitle}>From your journeys</Text>
@@ -349,10 +427,16 @@ export default function CreateMomentScreen() {
             </TouchableOpacity>
 
             <View style={styles.cameraTopRightActions}>
-              <TouchableOpacity style={styles.cameraIconBtn}>
-                <Ionicons name="flash-outline" size={20} color="#FFFFFF" />
+              <TouchableOpacity
+                style={styles.cameraIconBtn}
+                onPress={() => pickFromGallery(momentType === 'video' ? 'video' : 'photo')}
+              >
+                <Ionicons name="images-outline" size={20} color="#FFFFFF" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cameraIconBtn}>
+              <TouchableOpacity
+                style={styles.cameraIconBtn}
+                onPress={() => launchNativeCamera(momentType === 'video' ? 'video' : 'photo')}
+              >
                 <Ionicons name="camera-reverse-outline" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -375,7 +459,17 @@ export default function CreateMomentScreen() {
               </View>
             ) : (
               /* PHOTO / VIDEO PREVIEW FRAME */
-              <Image source={{ uri: selectedMediaUri }} style={styles.cameraPreviewImage} />
+              <TouchableOpacity
+                style={{ flex: 1, width: '100%', position: 'relative' }}
+                activeOpacity={0.9}
+                onPress={() => launchNativeCamera(momentType === 'video' ? 'video' : 'photo')}
+              >
+                <Image source={{ uri: selectedMediaUri }} style={styles.cameraPreviewImage} />
+                <View style={styles.cameraTapOverlay}>
+                  <Ionicons name="camera" size={20} color="#FFFFFF" />
+                  <Text style={styles.cameraTapText}>Tap to open device camera</Text>
+                </View>
+              </TouchableOpacity>
             )}
           </View>
 
@@ -398,10 +492,30 @@ export default function CreateMomentScreen() {
               })}
             </View>
 
-            {/* Shutter Button */}
-            <TouchableOpacity style={styles.shutterRing} activeOpacity={0.8} onPress={handleCaptureAction}>
-              <View style={styles.shutterInnerCircle} />
-            </TouchableOpacity>
+            {/* Shutter Button & Gallery */}
+            <View style={styles.cameraShutterRow}>
+              <TouchableOpacity
+                style={styles.cameraSideBtn}
+                onPress={() => pickFromGallery(momentType === 'video' ? 'video' : 'photo')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="images" size={22} color="#FFFFFF" />
+                <Text style={styles.cameraSideBtnText}>Gallery</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.shutterRing} activeOpacity={0.8} onPress={handleCaptureAction}>
+                <View style={styles.shutterInnerCircle} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cameraSideBtn}
+                onPress={() => launchNativeCamera(momentType === 'video' ? 'video' : 'photo')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="camera" size={22} color="#FFFFFF" />
+                <Text style={styles.cameraSideBtnText}>Camera</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -430,6 +544,24 @@ export default function CreateMomentScreen() {
             <View style={styles.photoRatioFrame}>
               <Image source={{ uri: selectedMediaUri }} style={styles.photoEditImage} />
               <View style={[styles.filterOverlay, { backgroundColor: selectedFilter.tint }]} />
+              <View style={styles.editPhotoActionRow}>
+                <TouchableOpacity
+                  style={styles.retakeFloatingBtn}
+                  activeOpacity={0.8}
+                  onPress={() => launchNativeCamera(momentType === 'video' ? 'video' : 'photo')}
+                >
+                  <Ionicons name="camera-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.retakeFloatingBtnText}>Retake</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.retakeFloatingBtn}
+                  activeOpacity={0.8}
+                  onPress={() => pickFromGallery(momentType === 'video' ? 'video' : 'photo')}
+                >
+                  <Ionicons name="images-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.retakeFloatingBtnText}>Gallery</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Filter Selector */}
@@ -1264,4 +1396,68 @@ const styles = StyleSheet.create({
   socialCaption: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, marginBottom: 10 },
   socialBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#12141A', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, alignSelf: 'flex-start', marginBottom: 6 },
   socialBadgeText: { color: '#FF6B00', fontSize: 12, fontWeight: '700' },
+
+  cameraTapOverlay: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cameraTapText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cameraShutterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 30,
+  },
+  cameraSideBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  cameraSideBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  editPhotoActionRow: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  retakeFloatingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  retakeFloatingBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

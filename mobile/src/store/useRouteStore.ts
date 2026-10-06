@@ -1,5 +1,15 @@
 import { create } from 'zustand';
-import { Spot, DetailedRoute, RoutePlace, RouteHighlight, MOCK_DETAILED_ROUTE, MOCK_ALL_EXPLORE_SPOTS, MOCK_USER_PROFILE } from '@/data/mockData';
+import {
+  Spot,
+  DetailedRoute,
+  RoutePlace,
+  RouteHighlight,
+  MOCK_DETAILED_ROUTE,
+  MOCK_ALL_EXPLORE_SPOTS,
+  MOCK_USER_PROFILE,
+} from '@/data/mockData';
+import { SpotService } from '@/services/spot.service';
+import { RouteService } from '@/services/route.service';
 
 // Preset Spots for Munnar & other regions matching prompt specs
 export const INITIAL_SPOTS: Spot[] = [
@@ -94,12 +104,12 @@ export const INITIAL_SPOTS: Spot[] = [
   ...MOCK_ALL_EXPLORE_SPOTS,
 ];
 
-// Deduplicate initial spots by ID
+// Deduplicate initial spots by ID or Name
 const UNIQUE_INITIAL_SPOTS = Array.from(
   new Map(INITIAL_SPOTS.map((spot) => [spot.id, spot])).values()
 );
 
-interface CreateRouteInput {
+export interface CreateRouteInput {
   title: string;
   coverImage: string;
   shortDescription: string;
@@ -113,7 +123,11 @@ interface CreateRouteInput {
 interface RouteStoreState {
   spots: Spot[];
   routes: DetailedRoute[];
-  addSpot: (spotData: Omit<Spot, 'id'>) => Spot;
+  isLoading: boolean;
+  error: string | null;
+  isInitialized: boolean;
+  fetchFromBackend: () => Promise<void>;
+  addSpot: (spotData: Omit<Spot, 'id'>) => Promise<Spot>;
   addRoute: (input: CreateRouteInput) => DetailedRoute;
   getRouteById: (id: string) => DetailedRoute | undefined;
   getSpotById: (id: string) => Spot | undefined;
@@ -122,18 +136,61 @@ interface RouteStoreState {
 export const useRouteStore = create<RouteStoreState>((set, get) => ({
   spots: UNIQUE_INITIAL_SPOTS,
   routes: [MOCK_DETAILED_ROUTE],
+  isLoading: false,
+  error: null,
+  isInitialized: false,
 
-  addSpot: (spotData) => {
-    const newSpotId = `spot-created-${Date.now()}`;
-    const newSpot: Spot = {
-      id: newSpotId,
+  fetchFromBackend: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const [backendSpots, backendRoutes] = await Promise.allSettled([
+        SpotService.getAllSpots(),
+        RouteService.getAllRoutes(),
+      ]);
+
+      const updatedState: Partial<RouteStoreState> = {
+        isLoading: false,
+        isInitialized: true,
+      };
+
+      if (backendSpots.status === 'fulfilled' && backendSpots.value.length > 0) {
+        // Merge backend spots with unique fallback spots without duplicates by name
+        const backendSpotNames = new Set(backendSpots.value.map((s) => s.name.toLowerCase().trim()));
+        const remainingFallbacks = UNIQUE_INITIAL_SPOTS.filter(
+          (s) => !backendSpotNames.has(s.name.toLowerCase().trim())
+        );
+        updatedState.spots = [...backendSpots.value, ...remainingFallbacks];
+      }
+
+      if (backendRoutes.status === 'fulfilled' && backendRoutes.value.length > 0) {
+        // Merge backend routes with fallback route
+        const backendRouteIds = new Set(backendRoutes.value.map((r) => r.id));
+        const remainingFallbacks = [MOCK_DETAILED_ROUTE].filter((r) => !backendRouteIds.has(r.id));
+        updatedState.routes = [...backendRoutes.value, ...remainingFallbacks];
+      }
+
+      set(updatedState as RouteStoreState);
+    } catch (err: any) {
+      console.warn('[useRouteStore] Backend sync fallback active:', err?.message || err);
+      set({ isLoading: false, isInitialized: true, error: err?.message || 'Sync failed' });
+    }
+  },
+
+  addSpot: async (spotData) => {
+    const persistedSpot = await SpotService.createSpot({
       name: spotData.name,
-      title: spotData.name,
-      image: spotData.image || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-      category: spotData.category || 'Nature',
-      tags: [spotData.category || 'Nature', 'Spot'],
-      location: spotData.location || 'Munnar, Idukki',
-      description: spotData.description || spotData.name,
+      category: spotData.category,
+      location: spotData.location,
+      description: spotData.description,
+      image: spotData.image,
+      latitude: spotData.latitude,
+      longitude: spotData.longitude,
+    });
+
+    const fullSpot: Spot = {
+      ...persistedSpot,
+      title: persistedSpot.name,
+      tags: [persistedSpot.category || 'Nature', 'Spot'],
       creator: {
         id: MOCK_USER_PROFILE.id,
         name: MOCK_USER_PROFILE.name,
@@ -144,18 +201,18 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
     };
 
     set((state) => ({
-      spots: [newSpot, ...state.spots],
+      spots: [fullSpot, ...state.spots],
     }));
 
-    return newSpot;
+    return fullSpot;
   },
 
   addRoute: (input) => {
-    const newRouteId = `route-created-${Date.now()}`;
+    const tempRouteId = `route-${Date.now()}`;
     const formattedPlaces: RoutePlace[] = input.places.map((spot, index) => {
       const dist = index === 0 ? '0 km' : `${(index * 1.8 + Math.random() * 0.5).toFixed(1)} km`;
       return {
-        id: `p-${newRouteId}-${index + 1}`,
+        id: `p-${tempRouteId}-${index + 1}`,
         spotId: spot.id,
         order: index + 1,
         name: spot.name || spot.title || 'Spot',
@@ -174,7 +231,7 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
       ? input.highlights
       : ['Scenic Viewpoints', 'Nature Trails', 'Tea Gardens']
     ).map((title, idx) => ({
-      id: `h-${newRouteId}-${idx + 1}`,
+      id: `h-${tempRouteId}-${idx + 1}`,
       title,
       description: `Highlight section of ${input.title}`,
       longDescription: `Experience the breathtaking ${title.toLowerCase()} along the ${input.title} route.`,
@@ -184,9 +241,11 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
     }));
 
     const newRoute: DetailedRoute = {
-      id: newRouteId,
+      id: tempRouteId,
       title: input.title,
-      coverImage: input.coverImage || 'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
+      coverImage:
+        input.coverImage ||
+        'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
       shortDescription: input.shortDescription,
       description: input.shortDescription,
       location: formattedPlaces[0]?.location || 'Munnar, Idukki',
@@ -217,18 +276,47 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
       experiences: [],
     };
 
+    // 1. Optimistic local state update
     set((state) => ({
       routes: [newRoute, ...state.routes],
     }));
+
+    // 2. Asynchronous backend persistence
+    RouteService.createRoute({
+      title: newRoute.title,
+      coverImage: newRoute.coverImage,
+      shortDescription: newRoute.shortDescription,
+      description: newRoute.description,
+      location: newRoute.location,
+      category: newRoute.category || 'Nature',
+      difficulty: newRoute.difficulty,
+      visibility: newRoute.visibility,
+      distance: newRoute.distance,
+      duration: newRoute.duration,
+      places: formattedPlaces,
+      highlights: (input.highlights || []).map((h) => (typeof h === 'string' ? h : (h as any).title)),
+    })
+      .then((persistedRoute) => {
+        // Swap temp ID with real DB ID
+        set((state) => ({
+          routes: state.routes.map((r) => (r.id === tempRouteId ? persistedRoute : r)),
+        }));
+      })
+      .catch((backendErr) => {
+        console.warn('[useRouteStore] Could not persist route to backend:', backendErr);
+      });
 
     return newRoute;
   },
 
   getRouteById: (id) => {
-    return get().routes.find((r) => r.id === id);
+    return get().routes.find((r) => String(r.id) === String(id));
   },
 
   getSpotById: (id) => {
-    return get().spots.find((s) => s.id === id);
+    return get().spots.find((s) => String(s.id) === String(id));
   },
 }));
+
+// Initialize store from backend on app boot
+useRouteStore.getState().fetchFromBackend();

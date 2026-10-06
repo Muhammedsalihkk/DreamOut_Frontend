@@ -1,5 +1,19 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, TouchableOpacity, ScrollView, Modal, TextInput } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  SafeAreaView,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  Pressable,
+  ActivityIndicator,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useRouteStore } from '@/store/useRouteStore';
@@ -15,23 +29,36 @@ export default function CreateScreen() {
   const [spotLocation, setSpotLocation] = useState('Munnar, Kerala');
   const [spotDescription, setSpotDescription] = useState('');
   const [spotNotice, setSpotNotice] = useState<string | null>(null);
+  const [spotError, setSpotError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleCreateSpot = () => {
-    if (!spotName.trim()) return;
-    const newSpot = addSpot({
-      name: spotName.trim(),
-      category: spotCategory,
-      location: spotLocation,
-      description: spotDescription,
-      image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-    });
-    setSpotNotice(`"${newSpot.name}" created successfully!`);
-    setTimeout(() => {
-      setSpotNotice(null);
-      setIsAddSpotModalVisible(false);
-      setSpotName('');
-      setSpotDescription('');
-    }, 1500);
+  const handleCreateSpot = async () => {
+    if (!spotName.trim()) {
+      setSpotError('Spot name is required');
+      return;
+    }
+    setSpotError(null);
+    setIsSubmitting(true);
+    try {
+      const newSpot = await addSpot({
+        name: spotName.trim(),
+        category: spotCategory.trim() || 'Nature & Mountains',
+        location: spotLocation.trim() || 'Munnar, Kerala',
+        description: spotDescription.trim() || spotName.trim(),
+        image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+      });
+      setSpotNotice(`"${newSpot.name}" created successfully!`);
+      setTimeout(() => {
+        setSpotNotice(null);
+        setIsAddSpotModalVisible(false);
+        setSpotName('');
+        setSpotDescription('');
+      }, 1500);
+    } catch (err: any) {
+      setSpotError(err?.message || 'Failed to create spot. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -111,61 +138,120 @@ export default function CreateScreen() {
       </ScrollView>
 
       {/* Add Spot Modal */}
-      <Modal visible={isAddSpotModalVisible} transparent animationType="slide" onRequestClose={() => setIsAddSpotModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+      <Modal
+        visible={isAddSpotModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsAddSpotModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={styles.modalBackdropTouch}
+            onPress={() => {
+              Keyboard.dismiss();
+              setSpotError(null);
+              setIsAddSpotModalVisible(false);
+            }}
+          />
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add a New Spot</Text>
-              <TouchableOpacity onPress={() => setIsAddSpotModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#8A8F9B" />
-              </TouchableOpacity>
-            </View>
+            <View style={styles.modalDragHandle} />
 
-            {spotNotice ? (
-              <View style={styles.successBanner}>
-                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                <Text style={styles.successBannerText}>{spotNotice}</Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.fieldLabel}>Spot Name *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Kolukkumalai View Point"
-                  placeholderTextColor="#6B7280"
-                  value={spotName}
-                  onChangeText={setSpotName}
-                />
-
-                <Text style={styles.fieldLabel}>Location</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Munnar, Kerala"
-                  placeholderTextColor="#6B7280"
-                  value={spotLocation}
-                  onChangeText={setSpotLocation}
-                />
-
-                <Text style={styles.fieldLabel}>Category</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Nature & Mountains"
-                  placeholderTextColor="#6B7280"
-                  value={spotCategory}
-                  onChangeText={setSpotCategory}
-                />
-
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add a New Spot</Text>
                 <TouchableOpacity
-                  style={[styles.saveSpotBtn, !spotName.trim() && { opacity: 0.5 }]}
-                  disabled={!spotName.trim()}
-                  onPress={handleCreateSpot}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setSpotError(null);
+                    setIsAddSpotModalVisible(false);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={styles.saveSpotBtnText}>Save Spot</Text>
+                  <Ionicons name="close" size={22} color="#8A8F9B" />
                 </TouchableOpacity>
-              </>
-            )}
+              </View>
+
+              {spotNotice ? (
+                <View style={styles.successBanner}>
+                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                  <Text style={styles.successBannerText}>{spotNotice}</Text>
+                </View>
+              ) : (
+                <>
+                  {spotError ? (
+                    <View style={styles.errorBanner}>
+                      <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                      <Text style={styles.errorBannerText}>{spotError}</Text>
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.fieldLabel}>Spot Name *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. Kolukkumalai View Point"
+                    placeholderTextColor="#6B7280"
+                    value={spotName}
+                    onChangeText={(text) => {
+                      setSpotName(text);
+                      if (spotError) setSpotError(null);
+                    }}
+                    returnKeyType="next"
+                  />
+
+                  <Text style={styles.fieldLabel}>Location</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. Munnar, Kerala"
+                    placeholderTextColor="#6B7280"
+                    value={spotLocation}
+                    onChangeText={(text) => {
+                      setSpotLocation(text);
+                      if (spotError) setSpotError(null);
+                    }}
+                    returnKeyType="next"
+                  />
+
+                  <Text style={styles.fieldLabel}>Category</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. Nature & Mountains"
+                    placeholderTextColor="#6B7280"
+                    value={spotCategory}
+                    onChangeText={(text) => {
+                      setSpotCategory(text);
+                      if (spotError) setSpotError(null);
+                    }}
+                    returnKeyType="done"
+                    onSubmitEditing={handleCreateSpot}
+                  />
+
+                  <TouchableOpacity
+                    style={[styles.saveSpotBtn, (!spotName.trim() || isSubmitting) && { opacity: 0.5 }]}
+                    disabled={!spotName.trim() || isSubmitting}
+                    onPress={handleCreateSpot}
+                  >
+                    {isSubmitting ? (
+                      <View style={styles.btnRow}>
+                        <ActivityIndicator color="#0A0B0E" size="small" />
+                        <Text style={styles.saveSpotBtnText}>Saving Spot...</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.saveSpotBtnText}>Save Spot</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -210,8 +296,11 @@ const styles = StyleSheet.create({
   cardSub: { color: '#9CA3AF', fontSize: 12, marginTop: 3, lineHeight: 17 },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
+  },
+  modalBackdropTouch: {
+    flex: 1,
   },
   modalContent: {
     backgroundColor: '#12141A',
@@ -219,13 +308,27 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '85%',
+  },
+  modalDragHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#374151',
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   fieldLabel: { color: '#9CA3AF', fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 10 },
@@ -256,4 +359,18 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   successBannerText: { color: '#10B981', fontSize: 14, fontWeight: '600' },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 1,
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  errorBannerText: { color: '#F87171', fontSize: 13, fontWeight: '600', flex: 1 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
 });

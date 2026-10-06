@@ -13,6 +13,9 @@ import {
   ActivityIndicator,
   Dimensions,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -144,6 +147,8 @@ export default function CreateRouteScreen() {
   const [newSpotCategory, setNewSpotCategory] = useState('Nature & Mountains');
   const [newSpotLocation, setNewSpotLocation] = useState('Munnar, Idukki');
   const [newSpotDescription, setNewSpotDescription] = useState('');
+  const [newSpotError, setNewSpotError] = useState<string | null>(null);
+  const [isCreatingSpot, setIsCreatingSpot] = useState(false);
 
   // Handle Category Switch in Search Spots with loading simulation
   const handleCategoryFilterSelect = (cat: string) => {
@@ -299,26 +304,38 @@ export default function CreateRouteScreen() {
   };
 
   // CREATE NEW SPOT AND AUTOMATICALLY ATTACH TO ROUTE
-  const handleCreateAndAttachNewSpot = () => {
-    if (!newSpotName.trim()) return;
+  const handleCreateAndAttachNewSpot = async () => {
+    if (!newSpotName.trim()) {
+      setNewSpotError('Spot name is required');
+      return;
+    }
 
-    const createdSpot = addSpot({
-      name: newSpotName.trim(),
-      category: newSpotCategory,
-      location: newSpotLocation,
-      description: newSpotDescription,
-      image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-    });
+    setNewSpotError(null);
+    setIsCreatingSpot(true);
+    try {
+      const createdSpot = await addSpot({
+        name: newSpotName.trim(),
+        category: newSpotCategory.trim() || 'Nature & Mountains',
+        location: newSpotLocation.trim() || 'Munnar, Idukki',
+        description: newSpotDescription.trim() || newSpotName.trim(),
+        image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+      });
 
-    // Automatically add newly created Spot to the Route sequence
-    setSelectedSpots((prev) => [...prev, createdSpot]);
-    setPlacesError(null);
+      // Automatically add newly created Spot to the Route sequence
+      setSelectedSpots((prev) => [...prev, createdSpot]);
+      setPlacesError(null);
 
-    // Reset and return to Step 2
-    setNewSpotName('');
-    setNewSpotDescription('');
-    setIsCreateSpotModalVisible(false);
-    setAddPlaceSubScreen('none');
+      // Reset and return to Step 2
+      setNewSpotName('');
+      setNewSpotDescription('');
+      setNewSpotError(null);
+      setIsCreateSpotModalVisible(false);
+      setAddPlaceSubScreen('none');
+    } catch (err: any) {
+      setNewSpotError(err?.message || 'Failed to create spot. Please try again.');
+    } finally {
+      setIsCreatingSpot(false);
+    }
   };
 
   // PUBLISH ROUTE ACTION
@@ -1233,62 +1250,117 @@ export default function CreateRouteScreen() {
       {/* ================================================== */}
       {/* MODAL — CREATE NEW SPOT FLOW                      */}
       {/* ================================================== */}
-      <Modal visible={isCreateSpotModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal visible={isCreateSpotModalVisible} transparent animationType="slide" onRequestClose={() => setIsCreateSpotModalVisible(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => {
+              Keyboard.dismiss();
+              setNewSpotError(null);
+              setIsCreateSpotModalVisible(false);
+            }}
+          />
           <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create New Spot</Text>
-              <TouchableOpacity onPress={() => setIsCreateSpotModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#8A8F9B" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSubtitleText}>
-              Add a new place to DreamOut. It will be added directly to your route.
-            </Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Spot Name *</Text>
-              <TextInput
-                style={styles.inputBox}
-                placeholder="e.g. Mattupetty Dam"
-                placeholderTextColor="#6B7280"
-                value={newSpotName}
-                onChangeText={setNewSpotName}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Location</Text>
-              <TextInput
-                style={styles.inputBox}
-                placeholder="e.g. Munnar, Idukki"
-                placeholderTextColor="#6B7280"
-                value={newSpotLocation}
-                onChangeText={setNewSpotLocation}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Category</Text>
-              <TextInput
-                style={styles.inputBox}
-                placeholder="e.g. Viewpoint"
-                placeholderTextColor="#6B7280"
-                value={newSpotCategory}
-                onChangeText={setNewSpotCategory}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.primaryOrangeBtn, !newSpotName.trim() && { opacity: 0.5 }]}
-              disabled={!newSpotName.trim()}
-              onPress={handleCreateAndAttachNewSpot}
+            <ScrollView
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.primaryOrangeBtnText}>Save & Add to Route</Text>
-            </TouchableOpacity>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Create New Spot</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setNewSpotError(null);
+                    setIsCreateSpotModalVisible(false);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={22} color="#8A8F9B" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitleText}>
+                Add a new place to DreamOut. It will be added directly to your route.
+              </Text>
+
+              {newSpotError ? (
+                <View style={styles.modalErrorBanner}>
+                  <Ionicons name="alert-circle" size={18} color="#EF4444" />
+                  <Text style={styles.modalErrorBannerText}>{newSpotError}</Text>
+                </View>
+              ) : null}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Spot Name *</Text>
+                <TextInput
+                  style={styles.inputBox}
+                  placeholder="e.g. Mattupetty Dam"
+                  placeholderTextColor="#6B7280"
+                  value={newSpotName}
+                  onChangeText={(text) => {
+                    setNewSpotName(text);
+                    if (newSpotError) setNewSpotError(null);
+                  }}
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Location</Text>
+                <TextInput
+                  style={styles.inputBox}
+                  placeholder="e.g. Munnar, Idukki"
+                  placeholderTextColor="#6B7280"
+                  value={newSpotLocation}
+                  onChangeText={(text) => {
+                    setNewSpotLocation(text);
+                    if (newSpotError) setNewSpotError(null);
+                  }}
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Category</Text>
+                <TextInput
+                  style={styles.inputBox}
+                  placeholder="e.g. Viewpoint"
+                  placeholderTextColor="#6B7280"
+                  value={newSpotCategory}
+                  onChangeText={(text) => {
+                    setNewSpotCategory(text);
+                    if (newSpotError) setNewSpotError(null);
+                  }}
+                  returnKeyType="done"
+                  onSubmitEditing={handleCreateAndAttachNewSpot}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryOrangeBtn,
+                  (!newSpotName.trim() || isCreatingSpot) && { opacity: 0.5 },
+                  { marginTop: 12, marginBottom: 12 },
+                ]}
+                disabled={!newSpotName.trim() || isCreatingSpot}
+                onPress={handleCreateAndAttachNewSpot}
+              >
+                {isCreatingSpot ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={styles.primaryOrangeBtnText}>Saving Spot...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.primaryOrangeBtnText}>Save & Add to Route</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ================================================== */}
@@ -2309,6 +2381,18 @@ const styles = StyleSheet.create({
   },
   modalTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   modalSubtitleText: { color: '#8A8F9B', fontSize: 13, marginBottom: 16 },
+  modalErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  modalErrorBannerText: { color: '#F87171', fontSize: 13, fontWeight: '600', flex: 1 },
 
   presetOptionRow: {
     flexDirection: 'row',

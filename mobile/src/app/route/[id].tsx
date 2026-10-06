@@ -30,6 +30,8 @@ import {
 
 import { useRouteStore } from '@/store/useRouteStore';
 
+import { RouteCommentsModal } from '@/components/route/RouteCommentsModal';
+
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type TabType = 'overview' | 'places' | 'photos' | 'experiences';
@@ -47,16 +49,16 @@ export default function RouteDetailsScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isSaved, setIsSaved] = useState(false);
   const [isFollowingCreator, setIsFollowingCreator] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [expFilter, setExpFilter] = useState<ExperienceFilterType>('all');
-
-  // Follow states for explorers
   const [followingUsersMap, setFollowingUsersMap] = useState<Record<string, boolean>>({
     'user-3': true,
     'user-5': true,
   });
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [expFilter, setExpFilter] = useState<ExperienceFilterType>('all');
 
   // Modals state
+  const [isCommentsModalVisible, setIsCommentsModalVisible] = useState(false);
+  const [routeCommentsCount, setRouteCommentsCount] = useState(route.commentsCount || 36);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isMapModalVisible, setIsMapModalVisible] = useState(false);
@@ -276,10 +278,16 @@ export default function RouteDetailsScreen() {
                 <Text style={styles.statPillText}>{route.likesCount}</Text>
               </View>
 
-              <View style={styles.statPill}>
-                <Ionicons name="chatbubble-outline" size={15} color="#8A8F9B" />
-                <Text style={styles.statPillText}>{route.commentsCount}</Text>
-              </View>
+              <TouchableOpacity
+                style={styles.statPill}
+                activeOpacity={0.7}
+                onPress={() => setIsCommentsModalVisible(true)}
+              >
+                <Ionicons name="chatbubble-outline" size={15} color="#FF6B00" />
+                <Text style={[styles.statPillText, { color: '#FFFFFF', fontWeight: '700' }]}>
+                  {routeCommentsCount}
+                </Text>
+              </TouchableOpacity>
 
               <View style={styles.statPill}>
                 <Ionicons name="walk-outline" size={16} color="#8A8F9B" />
@@ -1281,6 +1289,15 @@ export default function RouteDetailsScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* ROUTE COMMENTS BOTTOM SHEET MODAL */}
+      <RouteCommentsModal
+        visible={isCommentsModalVisible}
+        routeTitle={route.title}
+        initialCommentsCount={routeCommentsCount}
+        onClose={() => setIsCommentsModalVisible(false)}
+        onCommentsCountChange={setRouteCommentsCount}
+      />
     </View>
   );
 }
