@@ -82,15 +82,9 @@ export default function ExploreScreen() {
     return [...mappedStoreRoutes, ...remainingMocks];
   }, [storeRoutes]);
 
-  // Combined spots: prioritize real store/backend spots + mock spots
+  // Spots: show ONLY from backend
   const combinedSpots = useMemo(() => {
-    if (!storeSpots || storeSpots.length === 0) return MOCK_ALL_EXPLORE_SPOTS;
-    const storeSpotIds = new Set(storeSpots.map((s) => s.id));
-    const storeSpotNames = new Set(storeSpots.map((s) => s.name.toLowerCase().trim()));
-    const remainingMocks = MOCK_ALL_EXPLORE_SPOTS.filter(
-      (s) => !storeSpotIds.has(s.id) && !storeSpotNames.has(s.name.toLowerCase().trim())
-    );
-    return [...storeSpots, ...remainingMocks];
+    return storeSpots || [];
   }, [storeSpots]);
 
   // Filtered & Sorted Routes

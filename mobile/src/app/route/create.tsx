@@ -24,6 +24,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { useRouteStore } from '@/store/useRouteStore';
 import { Spot, DetailedRoute } from '@/data/mockData';
+import { SpotCategoryDropdown } from '@/components/spot/SpotCategoryDropdown';
+import {
+  GoogleMapLocationPicker,
+  LocationData,
+} from '@/components/spot/GoogleMapLocationPicker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -144,8 +149,9 @@ export default function CreateRouteScreen() {
 
   // New Spot Form Inputs
   const [newSpotName, setNewSpotName] = useState('');
-  const [newSpotCategory, setNewSpotCategory] = useState('Nature & Mountains');
-  const [newSpotLocation, setNewSpotLocation] = useState('Munnar, Idukki');
+  const [newSpotCategory, setNewSpotCategory] = useState('Food');
+  const [newSpotLocationData, setNewSpotLocationData] = useState<LocationData | null>(null);
+  const [isNewSpotLocationConfirmed, setIsNewSpotLocationConfirmed] = useState(false);
   const [newSpotDescription, setNewSpotDescription] = useState('');
   const [newSpotError, setNewSpotError] = useState<string | null>(null);
   const [isCreatingSpot, setIsCreatingSpot] = useState(false);
@@ -310,13 +316,20 @@ export default function CreateRouteScreen() {
       return;
     }
 
+    if (!newSpotLocationData || !newSpotLocationData.address.trim() || !isNewSpotLocationConfirmed) {
+      setNewSpotError('Please select a location for this spot.');
+      return;
+    }
+
     setNewSpotError(null);
     setIsCreatingSpot(true);
     try {
       const createdSpot = await addSpot({
         name: newSpotName.trim(),
-        category: newSpotCategory.trim() || 'Nature & Mountains',
-        location: newSpotLocation.trim() || 'Munnar, Idukki',
+        category: newSpotCategory.trim() || 'Food',
+        location: newSpotLocationData.address,
+        latitude: newSpotLocationData.latitude,
+        longitude: newSpotLocationData.longitude,
         description: newSpotDescription.trim() || newSpotName.trim(),
         image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
       });
@@ -327,6 +340,8 @@ export default function CreateRouteScreen() {
 
       // Reset and return to Step 2
       setNewSpotName('');
+      setNewSpotLocationData(null);
+      setIsNewSpotLocationConfirmed(false);
       setNewSpotDescription('');
       setNewSpotError(null);
       setIsCreateSpotModalVisible(false);
@@ -1309,36 +1324,32 @@ export default function CreateRouteScreen() {
                 />
               </View>
 
+              {/* Category Dropdown */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Location</Text>
-                <TextInput
-                  style={styles.inputBox}
-                  placeholder="e.g. Munnar, Idukki"
-                  placeholderTextColor="#6B7280"
-                  value={newSpotLocation}
-                  onChangeText={(text) => {
-                    setNewSpotLocation(text);
+                <Text style={styles.inputLabel}>Category</Text>
+                <SpotCategoryDropdown
+                  value={newSpotCategory}
+                  onSelect={(cat) => {
+                    setNewSpotCategory(cat);
                     if (newSpotError) setNewSpotError(null);
                   }}
-                  returnKeyType="next"
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Category</Text>
-                <TextInput
-                  style={styles.inputBox}
-                  placeholder="e.g. Viewpoint"
-                  placeholderTextColor="#6B7280"
-                  value={newSpotCategory}
-                  onChangeText={(text) => {
-                    setNewSpotCategory(text);
-                    if (newSpotError) setNewSpotError(null);
-                  }}
-                  returnKeyType="done"
-                  onSubmitEditing={handleCreateAndAttachNewSpot}
-                />
-              </View>
+              {/* Google Maps Location Picker directly in the form */}
+              <GoogleMapLocationPicker
+                value={newSpotLocationData}
+                onLocationChange={(loc) => {
+                  setNewSpotLocationData(loc);
+                  if (newSpotError) setNewSpotError(null);
+                }}
+                onConfirm={(loc) => {
+                  setNewSpotLocationData(loc);
+                  setIsNewSpotLocationConfirmed(true);
+                  if (newSpotError) setNewSpotError(null);
+                }}
+                error={newSpotError && !isNewSpotLocationConfirmed ? newSpotError : null}
+              />
 
               <TouchableOpacity
                 style={[
@@ -1352,7 +1363,7 @@ export default function CreateRouteScreen() {
                 {isCreatingSpot ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                     <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={styles.primaryOrangeBtnText}>Saving Spot...</Text>
+                    <Text style={styles.primaryOrangeBtnText}>Saving Spot to Backend...</Text>
                   </View>
                 ) : (
                   <Text style={styles.primaryOrangeBtnText}>Save & Add to Route</Text>

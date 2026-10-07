@@ -65,7 +65,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
               if (onCreateSpot) {
                 onCreateSpot();
               } else {
-                router.push('/create');
+                router.push('/spot/create' as any);
               }
             }}
           >

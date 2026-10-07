@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -21,13 +21,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
-  MOCK_SPOTS,
   MOCK_DETAILED_SPOT,
   MOCK_JOURNEY_DETAILS,
   Spot,
   JourneyMomentItem,
 } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
+import { SpotService } from '@/services/spot.service';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,25 +36,37 @@ export default function SpotDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  // Find target spot from store/backend or fallback to rich detailed spot
+  // Find target spot from store/backend
   const getSpotById = useRouteStore((state) => state.getSpotById);
-  const matchedSpot = (id ? getSpotById(id) : null) || MOCK_SPOTS.find((s) => s.id === id);
+  const matchedSpot = id ? getSpotById(id) : null;
+  const [backendSpot, setBackendSpot] = useState<Spot | null>(null);
+
+  useEffect(() => {
+    if (id && !matchedSpot) {
+      SpotService.getSpotById(id)
+        .then((s) => setBackendSpot(s))
+        .catch((err) => console.warn('[SpotDetails] Failed to fetch spot:', err));
+    }
+  }, [id, matchedSpot]);
+
+  const activeSpot = matchedSpot || backendSpot;
+
   const spot: Spot = {
     ...MOCK_DETAILED_SPOT,
-    ...(matchedSpot || {}),
-    // Ensure all rich detailed properties exist if matchedSpot is simpler
-    tags: matchedSpot?.tags || MOCK_DETAILED_SPOT.tags,
-    heroPhotos: matchedSpot?.heroPhotos || MOCK_DETAILED_SPOT.heroPhotos,
-    spotPhotos: matchedSpot?.spotPhotos || MOCK_DETAILED_SPOT.spotPhotos,
-    elevation: matchedSpot?.elevation || MOCK_DETAILED_SPOT.elevation,
-    bestTime: matchedSpot?.bestTime || MOCK_DETAILED_SPOT.bestTime,
-    distanceText: matchedSpot?.distanceText || MOCK_DETAILED_SPOT.distanceText,
-    nearbyTown: matchedSpot?.nearbyTown || MOCK_DETAILED_SPOT.nearbyTown,
-    aboutDescription: matchedSpot?.aboutDescription || MOCK_DETAILED_SPOT.aboutDescription,
-    routesContaining: matchedSpot?.routesContaining || MOCK_DETAILED_SPOT.routesContaining,
-    nearbySpotsList: matchedSpot?.nearbySpotsList || MOCK_DETAILED_SPOT.nearbySpotsList,
-    visitorTips: matchedSpot?.visitorTips || MOCK_DETAILED_SPOT.visitorTips,
-    stories: matchedSpot?.stories || MOCK_DETAILED_SPOT.stories,
+    ...(activeSpot || {}),
+    // Ensure spot details exist
+    tags: activeSpot?.tags || (activeSpot?.category ? [activeSpot.category] : MOCK_DETAILED_SPOT.tags),
+    heroPhotos: activeSpot?.heroPhotos || (activeSpot?.image ? [activeSpot.image] : MOCK_DETAILED_SPOT.heroPhotos),
+    spotPhotos: activeSpot?.spotPhotos || (activeSpot?.image ? [activeSpot.image] : MOCK_DETAILED_SPOT.spotPhotos),
+    elevation: activeSpot?.elevation || MOCK_DETAILED_SPOT.elevation,
+    bestTime: activeSpot?.bestTime || MOCK_DETAILED_SPOT.bestTime,
+    distanceText: activeSpot?.distanceText || MOCK_DETAILED_SPOT.distanceText,
+    nearbyTown: activeSpot?.nearbyTown || activeSpot?.location || MOCK_DETAILED_SPOT.nearbyTown,
+    aboutDescription: activeSpot?.aboutDescription || activeSpot?.description || MOCK_DETAILED_SPOT.aboutDescription,
+    routesContaining: activeSpot?.routesContaining || MOCK_DETAILED_SPOT.routesContaining,
+    nearbySpotsList: activeSpot?.nearbySpotsList || MOCK_DETAILED_SPOT.nearbySpotsList,
+    visitorTips: activeSpot?.visitorTips || MOCK_DETAILED_SPOT.visitorTips,
+    stories: activeSpot?.stories || MOCK_DETAILED_SPOT.stories,
   };
 
   // State Management

@@ -18,10 +18,7 @@ export const SpotSection: React.FC<SpotSectionProps> = ({
   const storeSpots = useRouteStore((state) => state.spots);
 
   const displaySpots = useMemo(() => {
-    if (storeSpots && storeSpots.length > 0) {
-      return storeSpots;
-    }
-    return MOCK_SPOTS;
+    return storeSpots || [];
   }, [storeSpots]);
 
   return (
@@ -34,13 +31,26 @@ export const SpotSection: React.FC<SpotSectionProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Horizontally Scrollable Spot Cards */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {displaySpots.map((spot: Spot) => (
+      {/* Horizontally Scrollable Spot Cards or Empty State */}
+      {displaySpots.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="location-outline" size={24} color="#FF6B00" />
+          <Text style={styles.emptyText}>No spots yet from backend.</Text>
+          <TouchableOpacity
+            style={styles.emptyAddBtn}
+            onPress={() => router.push('/spot/create' as any)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.emptyAddBtnText}>+ Add First Spot</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {displaySpots.map((spot: Spot) => (
           <TouchableOpacity
             key={spot.id}
             style={styles.card}
@@ -89,6 +99,7 @@ export const SpotSection: React.FC<SpotSectionProps> = ({
           </TouchableOpacity>
         ))}
       </ScrollView>
+    )}
     </View>
   );
 };
@@ -204,5 +215,33 @@ const styles = StyleSheet.create({
   creatorText: {
     color: '#8A8F9B',
     fontSize: 10,
+  },
+  emptyContainer: {
+    marginHorizontal: 18,
+    padding: 24,
+    backgroundColor: 'rgba(18, 20, 26, 0.8)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyText: {
+    color: '#8A8F9B',
+    fontSize: 13,
+  },
+  emptyAddBtn: {
+    marginTop: 6,
+    backgroundColor: 'rgba(255, 107, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: '#FF6B00',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  emptyAddBtnText: {
+    color: '#FF6B00',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

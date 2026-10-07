@@ -134,7 +134,7 @@ interface RouteStoreState {
 }
 
 export const useRouteStore = create<RouteStoreState>((set, get) => ({
-  spots: UNIQUE_INITIAL_SPOTS,
+  spots: [],
   routes: [MOCK_DETAILED_ROUTE],
   isLoading: false,
   error: null,
@@ -153,13 +153,12 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
         isInitialized: true,
       };
 
-      if (backendSpots.status === 'fulfilled' && backendSpots.value.length > 0) {
-        // Merge backend spots with unique fallback spots without duplicates by name
-        const backendSpotNames = new Set(backendSpots.value.map((s) => s.name.toLowerCase().trim()));
-        const remainingFallbacks = UNIQUE_INITIAL_SPOTS.filter(
-          (s) => !backendSpotNames.has(s.name.toLowerCase().trim())
-        );
-        updatedState.spots = [...backendSpots.value, ...remainingFallbacks];
+      if (backendSpots.status === 'fulfilled') {
+        // Show spots ONLY from backend
+        updatedState.spots = backendSpots.value;
+      } else {
+        console.warn('[useRouteStore] Failed to fetch backend spots:', backendSpots.reason);
+        updatedState.spots = [];
       }
 
       if (backendRoutes.status === 'fulfilled' && backendRoutes.value.length > 0) {

@@ -17,6 +17,11 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useRouteStore } from '@/store/useRouteStore';
+import { SpotCategoryDropdown } from '@/components/spot/SpotCategoryDropdown';
+import {
+  GoogleMapLocationPicker,
+  LocationData,
+} from '@/components/spot/GoogleMapLocationPicker';
 
 export default function CreateScreen() {
   const router = useRouter();
@@ -25,8 +30,9 @@ export default function CreateScreen() {
   // Quick Spot modal state
   const [isAddSpotModalVisible, setIsAddSpotModalVisible] = useState(false);
   const [spotName, setSpotName] = useState('');
-  const [spotCategory, setSpotCategory] = useState('Nature & Mountains');
-  const [spotLocation, setSpotLocation] = useState('Munnar, Kerala');
+  const [spotCategory, setSpotCategory] = useState('Food');
+  const [spotLocationData, setSpotLocationData] = useState<LocationData | null>(null);
+  const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
   const [spotDescription, setSpotDescription] = useState('');
   const [spotNotice, setSpotNotice] = useState<string | null>(null);
   const [spotError, setSpotError] = useState<string | null>(null);
@@ -37,14 +43,22 @@ export default function CreateScreen() {
       setSpotError('Spot name is required');
       return;
     }
+
+    if (!spotLocationData || !spotLocationData.address.trim() || !isLocationConfirmed) {
+      setSpotError('Please select a location for this spot.');
+      return;
+    }
+
     setSpotError(null);
     setIsSubmitting(true);
     try {
       const newSpot = await addSpot({
         name: spotName.trim(),
-        category: spotCategory.trim() || 'Nature & Mountains',
-        location: spotLocation.trim() || 'Munnar, Kerala',
+        category: spotCategory.trim() || 'Food',
+        location: spotLocationData.address,
         description: spotDescription.trim() || spotName.trim(),
+        latitude: spotLocationData.latitude,
+        longitude: spotLocationData.longitude,
         image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
       });
       setSpotNotice(`"${newSpot.name}" created successfully!`);
@@ -52,6 +66,8 @@ export default function CreateScreen() {
         setSpotNotice(null);
         setIsAddSpotModalVisible(false);
         setSpotName('');
+        setSpotLocationData(null);
+        setIsLocationConfirmed(false);
         setSpotDescription('');
       }, 1500);
     } catch (err: any) {
@@ -206,31 +222,29 @@ export default function CreateScreen() {
                     returnKeyType="next"
                   />
 
-                  <Text style={styles.fieldLabel}>Location</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. Munnar, Kerala"
-                    placeholderTextColor="#6B7280"
-                    value={spotLocation}
-                    onChangeText={(text) => {
-                      setSpotLocation(text);
+                  {/* Category Dropdown */}
+                  <Text style={styles.fieldLabel}>Category</Text>
+                  <SpotCategoryDropdown
+                    value={spotCategory}
+                    onSelect={(cat) => {
+                      setSpotCategory(cat);
                       if (spotError) setSpotError(null);
                     }}
-                    returnKeyType="next"
                   />
 
-                  <Text style={styles.fieldLabel}>Category</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. Nature & Mountains"
-                    placeholderTextColor="#6B7280"
-                    value={spotCategory}
-                    onChangeText={(text) => {
-                      setSpotCategory(text);
+                  {/* Google Maps Location Picker inside the form */}
+                  <GoogleMapLocationPicker
+                    value={spotLocationData}
+                    onLocationChange={(loc) => {
+                      setSpotLocationData(loc);
                       if (spotError) setSpotError(null);
                     }}
-                    returnKeyType="done"
-                    onSubmitEditing={handleCreateSpot}
+                    onConfirm={(loc) => {
+                      setSpotLocationData(loc);
+                      setIsLocationConfirmed(true);
+                      if (spotError) setSpotError(null);
+                    }}
+                    error={spotError && !isLocationConfirmed ? spotError : null}
                   />
 
                   <TouchableOpacity
@@ -241,7 +255,7 @@ export default function CreateScreen() {
                     {isSubmitting ? (
                       <View style={styles.btnRow}>
                         <ActivityIndicator color="#0A0B0E" size="small" />
-                        <Text style={styles.saveSpotBtnText}>Saving Spot...</Text>
+                        <Text style={styles.saveSpotBtnText}>Saving Spot to Backend...</Text>
                       </View>
                     ) : (
                       <Text style={styles.saveSpotBtnText}>Save Spot</Text>
@@ -332,6 +346,79 @@ const styles = StyleSheet.create({
   },
   modalTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   fieldLabel: { color: '#9CA3AF', fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 10 },
+  locationLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  gMapVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.3)',
+  },
+  gMapVerifiedText: {
+    color: '#FF6B00',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  locationPickerCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+  },
+  locationCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  locationPinCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 107, 0, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationCardTexts: {
+    flex: 1,
+  },
+  locationMainText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  locationSubText: {
+    color: '#8A8F9B',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  openMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    borderWidth: 1,
+    borderColor: '#FF6B00',
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  openMapBtnText: {
+    color: '#FF6B00',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   textInput: {
     backgroundColor: '#1A1D26',
     borderRadius: 12,
