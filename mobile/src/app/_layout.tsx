@@ -17,6 +17,7 @@ export default function RootLayout() {
         <Stack.Screen name="signup" />
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="user/connections" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="route/create" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="moment/create" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="route/[id]" options={{ headerShown: false }} />

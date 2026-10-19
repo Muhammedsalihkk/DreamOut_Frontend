@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { UserProfile } from '@/data/mockData';
 
 interface ProfileStatsProps {
@@ -7,6 +8,8 @@ interface ProfileStatsProps {
 }
 
 export const ProfileStats: React.FC<ProfileStatsProps> = ({ profile }) => {
+  const router = useRouter();
+
   const formatNum = (num: number): string => {
     if (num >= 1000) {
       return (num / 1000).toFixed(1) + 'K';
@@ -15,11 +18,27 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({ profile }) => {
   };
 
   const handleFollowersPress = () => {
-    Alert.alert('Followers', `Viewing followers of @${profile.username}`);
+    router.push({
+      pathname: '/user/connections',
+      params: {
+        userId: profile.id,
+        initialTab: 'followers',
+        userName: profile.name,
+        userHandle: profile.username,
+      },
+    } as any);
   };
 
   const handleFollowingPress = () => {
-    Alert.alert('Following', `Viewing accounts followed by @${profile.username}`);
+    router.push({
+      pathname: '/user/connections',
+      params: {
+        userId: profile.id,
+        initialTab: 'following',
+        userName: profile.name,
+        userHandle: profile.username,
+      },
+    } as any);
   };
 
   return (
