@@ -37,6 +37,14 @@ module.exports = ({ config }) => {
     extra: {
       ...config.extra,
       googleMapsApiKey: googleMapsApiKey,
+      cloudinaryCloudName:
+        process.env.VITE_CLOUDINARY_CLOUD_NAME ||
+        process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+        '',
+      cloudinaryUploadPreset:
+        process.env.VITE_CLOUDINARY_UPLOAD_PRESET ||
+        process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
+        '',
     },
   };
 };

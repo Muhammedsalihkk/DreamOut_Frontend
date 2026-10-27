@@ -22,6 +22,7 @@ import {
   GoogleMapLocationPicker,
   LocationData,
 } from '@/components/spot/GoogleMapLocationPicker';
+import { CloudinaryImagePicker } from '@/components/ui/CloudinaryImagePicker';
 
 export default function CreateScreen() {
   const router = useRouter();
@@ -34,6 +35,7 @@ export default function CreateScreen() {
   const [spotLocationData, setSpotLocationData] = useState<LocationData | null>(null);
   const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
   const [spotDescription, setSpotDescription] = useState('');
+  const [spotImage, setSpotImage] = useState('');
   const [spotNotice, setSpotNotice] = useState<string | null>(null);
   const [spotError, setSpotError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,7 +61,9 @@ export default function CreateScreen() {
         description: spotDescription.trim() || spotName.trim(),
         latitude: spotLocationData.latitude,
         longitude: spotLocationData.longitude,
-        image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+        image:
+          spotImage.trim() ||
+          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
       });
       setSpotNotice(`"${newSpot.name}" created successfully!`);
       setTimeout(() => {
@@ -69,6 +73,7 @@ export default function CreateScreen() {
         setSpotLocationData(null);
         setIsLocationConfirmed(false);
         setSpotDescription('');
+        setSpotImage('');
       }, 1500);
     } catch (err: any) {
       setSpotError(err?.message || 'Failed to create spot. Please try again.');
@@ -245,6 +250,18 @@ export default function CreateScreen() {
                       if (spotError) setSpotError(null);
                     }}
                     error={spotError && !isLocationConfirmed ? spotError : null}
+                  />
+
+                  {/* Cloudinary Spot Image Upload */}
+                  <CloudinaryImagePicker
+                    value={spotImage}
+                    onChange={(url) => {
+                      setSpotImage(url);
+                      if (spotError) setSpotError(null);
+                    }}
+                    category={spotCategory}
+                    label="Spot Photo"
+                    placeholderText="Upload Spot Photo to Cloudinary"
                   />
 
                   <TouchableOpacity

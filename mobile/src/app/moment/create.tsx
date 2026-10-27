@@ -25,6 +25,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useMomentStore, CreatedMoment } from '@/store/useMomentStore';
 import { useRouteStore } from '@/store/useRouteStore';
 import { Spot, MOCK_USER_PROFILE } from '@/data/mockData';
+import { CloudinaryService } from '@/services/cloudinary.service';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -247,13 +248,36 @@ export default function CreateMomentScreen() {
   };
 
   // Save Moment
-  const handleSaveMoment = () => {
+  const handleSaveMoment = async () => {
     setIsSaving(true);
 
-    setTimeout(() => {
+    try {
+      let finalMediaUri = selectedMediaUri;
+
+      // If user captured/selected a local file, upload it to Cloudinary galleries
+      if (
+        momentType !== 'note' &&
+        selectedMediaUri &&
+        (selectedMediaUri.startsWith('file:') ||
+          selectedMediaUri.startsWith('blob:') ||
+          selectedMediaUri.startsWith('data:') ||
+          selectedMediaUri.startsWith('content:'))
+      ) {
+        try {
+          const uploadRes = await CloudinaryService.uploadImage(
+            { uri: selectedMediaUri },
+            { folder: 'dreamout/galleries' }
+          );
+          finalMediaUri = uploadRes.secure_url;
+        } catch (uploadErr: any) {
+          console.warn('[MomentCreate] Cloudinary upload warning, saving with fallback:', uploadErr);
+          // If network upload fails, we still allow local save and notify
+        }
+      }
+
       const newMoment = addMoment({
         type: momentType,
-        mediaUri: momentType !== 'note' ? selectedMediaUri : undefined,
+        mediaUri: momentType !== 'note' ? finalMediaUri : undefined,
         noteText: momentType === 'note' ? noteContent || 'Wonderful experience in Munnar.' : undefined,
         caption: caption.trim() || 'A beautiful moment captured in Munnar.',
         spot: selectedSpot ? { id: selectedSpot.id, name: selectedSpot.name, location: selectedSpot.location } : undefined,
@@ -268,7 +292,11 @@ export default function CreateMomentScreen() {
       setCreatedMomentResult(newMoment);
       setIsSaving(false);
       setCurrentView('success');
-    }, 1200);
+    } catch (err: any) {
+      console.error('[MomentCreate] Error saving moment:', err);
+      setIsSaving(false);
+      Alert.alert('Error', err?.message || 'Could not save moment.');
+    }
   };
 
   const toggleTag = (tag: string) => {

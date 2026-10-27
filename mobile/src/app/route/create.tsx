@@ -29,6 +29,7 @@ import {
   GoogleMapLocationPicker,
   LocationData,
 } from '@/components/spot/GoogleMapLocationPicker';
+import { CloudinaryImagePicker } from '@/components/ui/CloudinaryImagePicker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -153,6 +154,7 @@ export default function CreateRouteScreen() {
   const [newSpotLocationData, setNewSpotLocationData] = useState<LocationData | null>(null);
   const [isNewSpotLocationConfirmed, setIsNewSpotLocationConfirmed] = useState(false);
   const [newSpotDescription, setNewSpotDescription] = useState('');
+  const [newSpotImage, setNewSpotImage] = useState('');
   const [newSpotError, setNewSpotError] = useState<string | null>(null);
   const [isCreatingSpot, setIsCreatingSpot] = useState(false);
 
@@ -331,7 +333,9 @@ export default function CreateRouteScreen() {
         latitude: newSpotLocationData.latitude,
         longitude: newSpotLocationData.longitude,
         description: newSpotDescription.trim() || newSpotName.trim(),
-        image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+        image:
+          newSpotImage.trim() ||
+          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
       });
 
       // Automatically add newly created Spot to the Route sequence
@@ -343,6 +347,7 @@ export default function CreateRouteScreen() {
       setNewSpotLocationData(null);
       setIsNewSpotLocationConfirmed(false);
       setNewSpotDescription('');
+      setNewSpotImage('');
       setNewSpotError(null);
       setIsCreateSpotModalVisible(false);
       setAddPlaceSubScreen('none');
@@ -1240,7 +1245,21 @@ export default function CreateRouteScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+            <View style={{ marginBottom: 14 }}>
+              <CloudinaryImagePicker
+                value={coverImage.includes('cloudinary.com') ? coverImage : null}
+                onChange={(url) => {
+                  setCoverImage(url);
+                  setIsCoverModalVisible(false);
+                }}
+                folder="dreamout/destinations"
+                label="Upload Custom Cover Photo"
+                placeholderText="Upload Route Cover to Cloudinary"
+              />
+            </View>
+
+            <Text style={[styles.inputLabel, { marginBottom: 8 }]}>Or Choose Scenic Preset</Text>
+            <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
               {PRESET_COVERS.map((preset) => (
                 <TouchableOpacity
                   key={preset.id}
@@ -1349,6 +1368,18 @@ export default function CreateRouteScreen() {
                   if (newSpotError) setNewSpotError(null);
                 }}
                 error={newSpotError && !isNewSpotLocationConfirmed ? newSpotError : null}
+              />
+
+              {/* Cloudinary Spot Image Upload */}
+              <CloudinaryImagePicker
+                value={newSpotImage}
+                onChange={(url) => {
+                  setNewSpotImage(url);
+                  if (newSpotError) setNewSpotError(null);
+                }}
+                category={newSpotCategory}
+                label="Spot Photo"
+                placeholderText="Upload Spot Photo to Cloudinary"
               />
 
               <TouchableOpacity

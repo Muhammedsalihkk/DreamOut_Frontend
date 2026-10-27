@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   Image,
   TouchableOpacity,
-  TouchableWithoutFeedback,
+  Pressable,
   Dimensions,
   Animated,
   StatusBar,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,65 +34,163 @@ export const StoryView: React.FC<StoryViewProps> = ({
   onPrevStory,
 }) => {
   const insets = useSafeAreaInsets();
-  
+
   // Fallback if no segments provided
-  const segments: StorySegment[] = story.segments && story.segments.length > 0
-    ? story.segments
-    : [
-        {
-          id: `default-${story.id}`,
-          type: 'image',
-          mediaUri: story.image,
-          duration: 5,
-          title: story.title,
-          caption: 'Captured travel experience.',
-          location: 'Dreamout Destination',
-          timeAgo: story.timeAgo || 'Recently',
-        },
-      ];
+  const segments: StorySegment[] =
+    story.segments && story.segments.length > 0
+      ? story.segments
+      : [
+          {
+            id: `default-${story.id}`,
+            type: 'image',
+            mediaUri: story.image,
+            duration: 5,
+            title: story.title,
+            caption: 'Captured travel experience.',
+            location: 'Dreamout Destination',
+            timeAgo: story.timeAgo || 'Recently',
+          },
+        ];
 
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   const activeSegment = segments[currentSegmentIndex] || segments[0];
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const pausedProgress = useRef(0);
   const segmentDuration = (activeSegment.duration || 5) * 1000;
 
-  // Progress bar animation timer
+  // Instagram-style Animation Values
+  const panY = useRef(new Animated.Value(0)).current;
+  const openScale = useRef(new Animated.Value(0.85)).current;
+  const openOpacity = useRef(new Animated.Value(0)).current;
+  const isClosingRef = useRef(false);
+
+  // Close with Instagram-like dismiss animation
+  const handleCloseAnimated = useCallback(() => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setIsPaused(true);
+
+    Animated.parallel([
+      Animated.timing(panY, {
+        toValue: SCREEN_HEIGHT * 0.9,
+        duration: 230,
+        useNativeDriver: false,
+      }),
+      Animated.timing(openScale, {
+        toValue: 0.72,
+        duration: 230,
+        useNativeDriver: false,
+      }),
+      Animated.timing(openOpacity, {
+        toValue: 0,
+        duration: 190,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  }, [onClose]);
+
+  // Instagram Open Animation: Smooth scale from 0.85 -> 1.0 with spring + fade in
   useEffect(() => {
-    progressAnim.setValue(0);
-    if (isPaused) return;
+    isClosingRef.current = false;
+    openScale.setValue(0.85);
+    openOpacity.setValue(0);
+    panY.setValue(0);
 
-    const anim = Animated.timing(progressAnim, {
-      toValue: 1,
-      duration: segmentDuration,
-      useNativeDriver: false,
-    });
+    Animated.parallel([
+      Animated.spring(openScale, {
+        toValue: 1,
+        tension: 65,
+        friction: 9,
+        useNativeDriver: false,
+      }),
+      Animated.timing(openOpacity, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [story.id]);
 
-    anim.start(({ finished }) => {
-      if (finished) {
-        handleNextSegment();
-      }
-    });
+  // PanResponder for Instagram swipe-down gesture to close
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only capture vertical pull-down gestures
+        return (
+          gestureState.dy > 8 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.3
+        );
+      },
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        return (
+          gestureState.dy > 8 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.3
+        );
+      },
+      onPanResponderGrant: () => {
+        setIsPaused(true);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          panY.setValue(gestureState.dy);
+        } else {
+          // Subtle resistance if pulling upwards
+          panY.setValue(gestureState.dy * 0.15);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        // Instagram threshold: dropped down > 120 or downward flick velocity > 0.75
+        if (gestureState.dy > 120 || gestureState.vy > 0.75) {
+          handleCloseAnimated();
+        } else {
+          // Snap back with spring
+          Animated.spring(panY, {
+            toValue: 0,
+            tension: 80,
+            friction: 10,
+            useNativeDriver: false,
+          }).start(() => {
+            setIsPaused(false);
+          });
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(panY, {
+          toValue: 0,
+          tension: 80,
+          friction: 10,
+          useNativeDriver: false,
+        }).start(() => {
+          setIsPaused(false);
+        });
+      },
+    })
+  ).current;
 
-    return () => {
-      anim.stop();
-    };
-  }, [currentSegmentIndex, isPaused, segmentDuration]);
-
+  // Next & Previous Segment Navigation
   const handleNextSegment = () => {
+    pausedProgress.current = 0;
+    progressAnim.setValue(0);
     if (currentSegmentIndex < segments.length - 1) {
       setCurrentSegmentIndex((prev) => prev + 1);
     } else {
       if (onNextStory) {
         onNextStory();
       } else {
-        onClose();
+        handleCloseAnimated();
       }
     }
   };
 
   const handlePrevSegment = () => {
+    pausedProgress.current = 0;
+    progressAnim.setValue(0);
     if (currentSegmentIndex > 0) {
       setCurrentSegmentIndex((prev) => prev - 1);
     } else {
@@ -100,6 +199,41 @@ export const StoryView: React.FC<StoryViewProps> = ({
       }
     }
   };
+
+  // Progress Bar Timer with smooth pause & resume
+  useEffect(() => {
+    if (isPaused) {
+      progressAnim.stopAnimation((val) => {
+        pausedProgress.current = val;
+      });
+      return;
+    }
+
+    const startVal = pausedProgress.current;
+    const remainingDuration = segmentDuration * (1 - startVal);
+
+    if (remainingDuration <= 0) {
+      handleNextSegment();
+      return;
+    }
+
+    const anim = Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: remainingDuration,
+      useNativeDriver: false,
+    });
+
+    anim.start(({ finished }) => {
+      if (finished) {
+        pausedProgress.current = 0;
+        handleNextSegment();
+      }
+    });
+
+    return () => {
+      anim.stop();
+    };
+  }, [currentSegmentIndex, isPaused, segmentDuration]);
 
   const handleTapScreen = (evt: any) => {
     const touchX = evt.nativeEvent.locationX;
@@ -110,160 +244,221 @@ export const StoryView: React.FC<StoryViewProps> = ({
     }
   };
 
+  // Dynamic Scale and Border Radius during Swipe Down (exact Instagram behavior)
+  const dragScale = panY.interpolate({
+    inputRange: [-100, 0, SCREEN_HEIGHT * 0.7],
+    outputRange: [1, 1, 0.74],
+    extrapolate: 'clamp',
+  });
+
+  const combinedScale = Animated.multiply(openScale, dragScale);
+
+  const animatedBorderRadius = panY.interpolate({
+    inputRange: [0, 80, SCREEN_HEIGHT * 0.5],
+    outputRange: [0, 22, 38],
+    extrapolate: 'clamp',
+  });
+
+  const backdropOpacity = panY.interpolate({
+    inputRange: [0, SCREEN_HEIGHT * 0.6],
+    outputRange: [1, 0.15],
+    extrapolate: 'clamp',
+  });
+
   const userAvatar = story.user?.avatar || story.image;
   const userName = story.user?.name || story.title;
   const timeAgo = activeSegment.timeAgo || story.timeAgo || '2h ago';
 
   return (
-    <View style={styles.container}>
+    <View style={styles.outerContainer}>
       <StatusBar barStyle="light-content" hidden />
 
-      {/* Full-Screen Story Image Backdrop */}
-      <Image
-        source={{ uri: activeSegment.mediaUri }}
-        style={styles.backdropImage}
-        resizeMode="cover"
+      {/* Dark backdrop with fading opacity during gesture */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.backdrop,
+          { opacity: backdropOpacity },
+        ]}
       />
 
-      {/* Touch Control Overlay for Navigation & Press-to-Pause */}
-      <TouchableWithoutFeedback
-        onPressIn={() => setIsPaused(true)}
-        onPressOut={() => setIsPaused(false)}
-        onPress={handleTapScreen}
+      {/* Floating Animated Story Container with Instagram zoom & drop-down gesture */}
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.storyCard,
+          {
+            opacity: openOpacity,
+            borderRadius: animatedBorderRadius,
+            transform: [
+              { translateY: panY },
+              { scale: combinedScale },
+            ],
+          },
+        ]}
       >
-        <View style={StyleSheet.absoluteFill} />
-      </TouchableWithoutFeedback>
+        {/* Full-Screen Story Image Backdrop */}
+        <Image
+          source={{ uri: activeSegment.mediaUri }}
+          style={styles.backdropImage}
+          resizeMode="cover"
+        />
 
-      {/* Top Gradient Protection for Text Readability */}
-      <LinearGradient
-        colors={['rgba(10, 11, 14, 0.88)', 'rgba(10, 11, 14, 0.45)', 'transparent']}
-        locations={[0, 0.6, 1]}
-        style={[styles.topGradient, { paddingTop: Math.max(insets.top, 14) }]}
-        pointerEvents="box-none"
-      >
-        {/* Story Progress Bars */}
-        <View style={styles.progressContainer}>
-          {segments.map((seg, idx) => {
-            let widthInterpolation;
-            if (idx < currentSegmentIndex) {
-              widthInterpolation = '100%';
-            } else if (idx === currentSegmentIndex) {
-              widthInterpolation = progressAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              });
-            } else {
-              widthInterpolation = '0%';
-            }
+        {/* Touch Control Overlay for Navigation & Press-to-Pause */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPressIn={() => setIsPaused(true)}
+          onPressOut={() => setIsPaused(false)}
+          onPress={handleTapScreen}
+        />
 
-            return (
-              <View key={seg.id || idx.toString()} style={styles.progressTrack}>
-                <Animated.View
-                  style={[
-                    styles.progressFill,
-                    { width: widthInterpolation as any },
-                  ]}
-                />
+        {/* Top Gradient Protection for Text Readability */}
+        <LinearGradient
+          colors={['rgba(10, 11, 14, 0.88)', 'rgba(10, 11, 14, 0.45)', 'transparent']}
+          locations={[0, 0.6, 1]}
+          style={[styles.topGradient, { paddingTop: Math.max(insets.top, 14) }]}
+          pointerEvents="box-none"
+        >
+          {/* Story Progress Bars */}
+          <View style={styles.progressContainer}>
+            {segments.map((seg, idx) => {
+              let widthInterpolation;
+              if (idx < currentSegmentIndex) {
+                widthInterpolation = '100%';
+              } else if (idx === currentSegmentIndex) {
+                widthInterpolation = progressAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                });
+              } else {
+                widthInterpolation = '0%';
+              }
+
+              return (
+                <View key={seg.id || idx.toString()} style={styles.progressTrack}>
+                  <Animated.View
+                    style={[
+                      styles.progressFill,
+                      { width: widthInterpolation as any },
+                    ]}
+                  />
+                </View>
+              );
+            })}
+          </View>
+
+          {/* User Profile Info & Close Button */}
+          <View style={styles.headerRow}>
+            <View style={styles.userProfileLeft}>
+              <View style={styles.avatarRing}>
+                <Image source={{ uri: userAvatar }} style={styles.avatarImage} />
               </View>
-            );
-          })}
-        </View>
-
-        {/* User Profile Info & Close Button */}
-        <View style={styles.headerRow}>
-          <View style={styles.userProfileLeft}>
-            <View style={styles.avatarRing}>
-              <Image source={{ uri: userAvatar }} style={styles.avatarImage} />
+              <View style={styles.userInfoCol}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.userNameText} numberOfLines={1}>
+                    {userName}
+                  </Text>
+                  {story.user?.isVerified && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={14}
+                      color="#FF6B00"
+                      style={styles.verifiedIcon}
+                    />
+                  )}
+                </View>
+                <Text style={styles.timeAgoText}>{timeAgo}</Text>
+              </View>
             </View>
-            <View style={styles.userInfoCol}>
-              <View style={styles.nameRow}>
-                <Text style={styles.userNameText} numberOfLines={1}>
-                  {userName}
+
+            {/* Close (X) Button */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={handleCloseAnimated}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="close" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+
+        {/* Bottom Gradient Protection for Content Readability */}
+        <LinearGradient
+          colors={['transparent', 'rgba(10, 11, 14, 0.7)', 'rgba(10, 11, 14, 0.95)']}
+          locations={[0, 0.4, 1]}
+          style={[styles.bottomGradient, { paddingBottom: Math.max(insets.bottom + 16, 28) }]}
+          pointerEvents="box-none"
+        >
+          {/* Location Pill */}
+          {activeSegment.location && (
+            <View style={styles.locationPill}>
+              <Ionicons name="location-sharp" size={13} color="#FF6B00" />
+              <Text style={styles.locationText}>{activeSegment.location}</Text>
+            </View>
+          )}
+
+          {/* Story Title & Short Caption */}
+          {activeSegment.title && (
+            <Text style={styles.storyTitleText}>{activeSegment.title}</Text>
+          )}
+
+          {activeSegment.caption && (
+            <Text style={styles.storyCaptionText}>{activeSegment.caption}</Text>
+          )}
+
+          {/* Bottom Card: "Part of a route" */}
+          {activeSegment.route && (
+            <TouchableOpacity
+              style={styles.routeCard}
+              activeOpacity={0.85}
+              onPress={() => onSelectRoute && onSelectRoute(activeSegment.route!.id)}
+            >
+              <Image
+                source={{ uri: activeSegment.route.image }}
+                style={styles.routeThumbnail}
+              />
+              <View style={styles.routeInfo}>
+                <Text style={styles.routeBadgeLabel}>PART OF A ROUTE</Text>
+                <Text style={styles.routeNameText} numberOfLines={1}>
+                  {activeSegment.route.title}
                 </Text>
-                {story.user?.isVerified && (
-                  <Ionicons name="checkmark-circle" size={14} color="#FF6B00" style={styles.verifiedIcon} />
+                {activeSegment.route.subtitle && (
+                  <Text style={styles.routeSubtitleText} numberOfLines={1}>
+                    {activeSegment.route.subtitle}
+                  </Text>
                 )}
               </View>
-              <Text style={styles.timeAgoText}>{timeAgo}</Text>
-            </View>
-          </View>
-
-          {/* Close (X) Button */}
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="close" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      {/* Bottom Gradient Protection for Content Readability */}
-      <LinearGradient
-        colors={['transparent', 'rgba(10, 11, 14, 0.7)', 'rgba(10, 11, 14, 0.95)']}
-        locations={[0, 0.4, 1]}
-        style={[styles.bottomGradient, { paddingBottom: Math.max(insets.bottom + 16, 28) }]}
-        pointerEvents="box-none"
-      >
-        {/* Location Pill */}
-        {activeSegment.location && (
-          <View style={styles.locationPill}>
-            <Ionicons name="location-sharp" size={13} color="#FF6B00" />
-            <Text style={styles.locationText}>{activeSegment.location}</Text>
-          </View>
-        )}
-
-        {/* Story Title & Short Caption */}
-        {activeSegment.title && (
-          <Text style={styles.storyTitleText}>{activeSegment.title}</Text>
-        )}
-
-        {activeSegment.caption && (
-          <Text style={styles.storyCaptionText}>{activeSegment.caption}</Text>
-        )}
-
-        {/* Bottom Card: "Part of a route" */}
-        {activeSegment.route && (
-          <TouchableOpacity
-            style={styles.routeCard}
-            activeOpacity={0.85}
-            onPress={() => onSelectRoute && onSelectRoute(activeSegment.route!.id)}
-          >
-            <Image
-              source={{ uri: activeSegment.route.image }}
-              style={styles.routeThumbnail}
-            />
-            <View style={styles.routeInfo}>
-              <Text style={styles.routeBadgeLabel}>PART OF A ROUTE</Text>
-              <Text style={styles.routeNameText} numberOfLines={1}>
-                {activeSegment.route.title}
-              </Text>
-              {activeSegment.route.subtitle && (
-                <Text style={styles.routeSubtitleText} numberOfLines={1}>
-                  {activeSegment.route.subtitle}
-                </Text>
-              )}
-            </View>
-            <View style={styles.routeArrowCircle}>
-              <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-        )}
-      </LinearGradient>
+              <View style={styles.routeArrowCircle}>
+                <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+          )}
+        </LinearGradient>
+      </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
     flex: 1,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backdrop: {
+    backgroundColor: '#000000',
+  },
+  storyCard: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    overflow: 'hidden',
     backgroundColor: '#0A0B0E',
   },
   backdropImage: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    width: '100%',
+    height: '100%',
     position: 'absolute',
     top: 0,
     left: 0,

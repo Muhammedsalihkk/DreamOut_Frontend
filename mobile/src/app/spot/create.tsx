@@ -20,6 +20,7 @@ import {
   GoogleMapLocationPicker,
   LocationData,
 } from '@/components/spot/GoogleMapLocationPicker';
+import { CloudinaryImagePicker } from '@/components/ui/CloudinaryImagePicker';
 
 export default function CreateSpotPage() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function CreateSpotPage() {
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
   const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,7 +59,9 @@ export default function CreateSpotPage() {
         latitude: locationData.latitude,
         longitude: locationData.longitude,
         description: description.trim() || name.trim(),
-        image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+        image:
+          imageUrl.trim() ||
+          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
       });
 
       setSuccessNotice(`"${newSpot.name}" created successfully!`);
@@ -143,6 +147,18 @@ export default function CreateSpotPage() {
               if (error) setError(null);
             }}
             error={error && !isLocationConfirmed ? error : null}
+          />
+
+          {/* Cloudinary Spot Image Upload */}
+          <CloudinaryImagePicker
+            value={imageUrl}
+            onChange={(url) => {
+              setImageUrl(url);
+              if (error) setError(null);
+            }}
+            category={category}
+            label="Spot Photo"
+            placeholderText="Upload Spot Photo to Cloudinary"
           />
 
           {/* Spot Description */}

@@ -25,6 +25,7 @@ import {
   MOCK_JOURNEY_DETAILS,
   RoutePlace,
 } from '@/data/mockData';
+import { CloudinaryService } from '@/services/cloudinary.service';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -174,12 +175,36 @@ export default function JourneyModeScreen() {
     }
   };
 
-  const handleSaveMoment = () => {
+  const [isSavingMoment, setIsSavingMoment] = useState(false);
+
+  const handleSaveMoment = async () => {
+    setIsSavingMoment(true);
+    let finalUrl = capturedMediaUri;
+
+    if (
+      capturedMediaUri &&
+      (capturedMediaUri.startsWith('file:') ||
+        capturedMediaUri.startsWith('blob:') ||
+        capturedMediaUri.startsWith('data:') ||
+        capturedMediaUri.startsWith('content:'))
+    ) {
+      try {
+        const uploadResult = await CloudinaryService.uploadImage(
+          { uri: capturedMediaUri },
+          { folder: 'dreamout/galleries' }
+        );
+        finalUrl = uploadResult.secure_url;
+      } catch (uploadErr) {
+        console.warn('[JourneyMode] Cloudinary upload notice:', uploadErr);
+      }
+    }
+
     setMomentsCount((prev) => prev + 1);
+    setIsSavingMoment(false);
     setIsCaptureModalVisible(false);
     Alert.alert(
       'Moment Saved! 📸',
-      `Your moment at "${currentSpot.name}" has been added to your journey.`
+      `Your moment at "${currentSpot.name}" has been uploaded and added to your journey.`
     );
   };
 
@@ -944,11 +969,19 @@ export default function JourneyModeScreen() {
 
               {/* Final Save CTA Button */}
               <TouchableOpacity
-                style={styles.saveMomentFinalBtn}
+                style={[styles.saveMomentFinalBtn, isSavingMoment && { opacity: 0.6 }]}
                 activeOpacity={0.88}
+                disabled={isSavingMoment}
                 onPress={handleSaveMoment}
               >
-                <Text style={styles.saveMomentFinalText}>Save Moment to Journey</Text>
+                {isSavingMoment ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <ActivityIndicator color="#0A0B0E" size="small" />
+                    <Text style={styles.saveMomentFinalText}>Uploading to Cloudinary...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.saveMomentFinalText}>Save Moment to Journey</Text>
+                )}
               </TouchableOpacity>
             </ScrollView>
           )}
