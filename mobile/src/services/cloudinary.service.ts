@@ -276,6 +276,14 @@ export class CloudinaryService {
           try {
             const errorObj = JSON.parse(xhr.responseText);
             const serverMsg = errorObj.error?.message || `Upload failed with HTTP status ${xhr.status}`;
+            if (serverMsg.toLowerCase().includes('whitelisted for unsigned uploads')) {
+              reject(
+                new Error(
+                  `Upload preset '${uploadPreset}' is set to 'Signed'. To allow direct uploads from the mobile app, go to Cloudinary Console > Settings > Upload > Upload presets, edit '${uploadPreset}', and switch 'Signing Mode' to 'Unsigned'.`
+                )
+              );
+              return;
+            }
             reject(new Error(serverMsg));
           } catch {
             reject(new Error(`Upload failed with HTTP status ${xhr.status}: ${xhr.statusText}`));

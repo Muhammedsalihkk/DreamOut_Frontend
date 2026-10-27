@@ -1,5 +1,6 @@
 import { API_BASE_URL } from './api.config';
 import { Spot } from '@/data/mockData';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export interface BackendSpot {
   id: number;
@@ -13,6 +14,11 @@ export interface BackendSpot {
   category: string;
   createdAt: string;
   updatedAt: string;
+  user?: {
+    id: number;
+    name: string | null;
+    email?: string;
+  };
 }
 
 export class SpotService {
@@ -20,20 +26,34 @@ export class SpotService {
    * Helper to format a backend spot into frontend Spot entity
    */
   static formatSpot(backendSpot: BackendSpot): Spot {
+    const imageUrl =
+      backendSpot.image ||
+      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80';
+
     return {
       id: String(backendSpot.id),
       name: backendSpot.name,
       title: backendSpot.name,
       description: backendSpot.description || '',
+      aboutDescription: backendSpot.description || '',
       category: backendSpot.category || 'Spot',
       tags: [backendSpot.category || 'Spot'],
       location: backendSpot.location || 'Munnar, Idukki',
-      image:
-        backendSpot.image ||
-        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+      image: imageUrl,
+      heroPhotos: [imageUrl],
+      spotPhotos: [imageUrl],
       latitude: Number(backendSpot.latitude),
       longitude: Number(backendSpot.longitude),
       routeCount: 1,
+      creator: backendSpot.user
+        ? {
+            id: String(backendSpot.user.id),
+            name: backendSpot.user.name || 'Explorer',
+            username: (backendSpot.user.name || 'explorer').toLowerCase().replace(/\s+/g, '_'),
+            avatar:
+              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+          }
+        : undefined,
     };
   }
 
@@ -53,7 +73,7 @@ export class SpotService {
 
       const result = await response.json();
       if (Array.isArray(result.data)) {
-        return result.data.map(this.formatSpot);
+        return result.data.map((s: BackendSpot) => this.formatSpot(s));
       }
       return [];
     } catch (err) {
@@ -102,6 +122,10 @@ export class SpotService {
       throw new Error('Spot name is required and cannot be empty.');
     }
 
+    const authState = useAuthStore.getState();
+    const activeUserId = spotData.userId || (authState.user?.id ? Number(authState.user.id) : undefined);
+    const token = authState.token;
+
     const payload = {
       name: trimmedName,
       category: spotData.category?.trim() || 'Nature & Mountains',
@@ -110,14 +134,21 @@ export class SpotService {
       image: spotData.image || null,
       latitude: spotData.latitude !== undefined && !isNaN(Number(spotData.latitude)) ? Number(spotData.latitude) : 10.0889,
       longitude: spotData.longitude !== undefined && !isNaN(Number(spotData.longitude)) ? Number(spotData.longitude) : 77.0595,
-      ...(spotData.userId ? { userId: spotData.userId } : {}),
+      ...(activeUserId ? { userId: activeUserId } : {}),
     };
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     let response: Response;
     try {
       response = await fetch(`${API_BASE_URL}/spots`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
     } catch (networkErr: any) {
@@ -138,5 +169,21 @@ export class SpotService {
 
     const result = await response.json();
     return this.formatSpot(result.data);
+  }
+
+  /**
+   * Delete a spot in the backend by ID
+   */
+  static async deleteSpot(id: string | number): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/spots/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return response.ok;
+    } catch (err) {
+      console.warn(`[SpotService] Error deleting spot ${id}:`, err);
+      return false;
+    }
   }
 }

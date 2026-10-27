@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,6 +12,7 @@ import {
   Alert,
   Share,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,12 +20,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import {
-  MOCK_DETAILED_ROUTE,
   DetailedRoute,
   RoutePlace,
   RouteHighlight,
 } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
+import { RouteService } from '@/services/route.service';
+import { useAuthStore } from '@/store/useAuthStore';
 import { RouteCommentsModal } from '@/components/route/RouteCommentsModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -35,21 +37,92 @@ export default function RouteDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const getRouteById = useRouteStore((state) => state.getRouteById);
-  const route: DetailedRoute = (id ? getRouteById(id) : null) || MOCK_DETAILED_ROUTE;
+  const deleteRoute = useRouteStore((state) => state.deleteRoute);
+  const authUser = useAuthStore((state) => state.user);
+
+  const matchedRoute = id ? getRouteById(id) : null;
+  const [backendRoute, setBackendRoute] = useState<DetailedRoute | null>(matchedRoute || null);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(!matchedRoute);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      if (!matchedRoute) {
+        setIsLoadingRoute(true);
+      }
+      RouteService.getRouteById(id)
+        .then((r) => {
+          setBackendRoute(r);
+          setFetchError(null);
+        })
+        .catch((err) => {
+          console.warn('[RouteDetails] Failed to fetch route:', err);
+          if (!matchedRoute) {
+            setFetchError('Unable to load route from backend.');
+          }
+        })
+        .finally(() => {
+          setIsLoadingRoute(false);
+        });
+    }
+  }, [id]);
+
+  const route = backendRoute || matchedRoute;
 
   // Interaction State
   const [isSaved, setIsSaved] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(route.likesCount || 120);
+  const [likesCount, setLikesCount] = useState(route?.likesCount || 0);
   const [isFollowingCreator, setIsFollowingCreator] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   // Modals State
   const [isCommentsModalVisible, setIsCommentsModalVisible] = useState(false);
-  const [routeCommentsCount, setRouteCommentsCount] = useState(route.commentsCount || 36);
+  const [routeCommentsCount, setRouteCommentsCount] = useState(route?.commentsCount || 0);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
-  const [activePhotoUrl, setActivePhotoUrl] = useState<string>(route.coverImage);
+  const [activePhotoUrl, setActivePhotoUrl] = useState<string>(route?.coverImage || '');
   const [activePhotoTitle, setActivePhotoTitle] = useState<string>('');
+
+  useEffect(() => {
+    if (route) {
+      setLikesCount(route.likesCount || 0);
+      setRouteCommentsCount(route.commentsCount || 0);
+      if (!activePhotoUrl && route.coverImage) {
+        setActivePhotoUrl(route.coverImage);
+      }
+    }
+  }, [route]);
+
+  // Check if current user is the route creator
+  const isCreator = Boolean(
+    authUser &&
+    route &&
+    (String(route.creator?.id) === String(authUser.id) || route.creator?.name === authUser.name)
+  );
+
+  const handleDeleteRoute = () => {
+    if (!route) return;
+    Alert.alert(
+      'Delete Route',
+      `Are you sure you want to delete "${route.title}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deleteRoute(route.id);
+            if (success) {
+              Alert.alert('Deleted', 'Route deleted successfully.');
+              router.back();
+            } else {
+              Alert.alert('Error', 'Failed to delete route.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Top Action Handlers
   const handleBack = () => {
@@ -110,9 +183,35 @@ export default function RouteDetailsScreen() {
   // Safe Top Padding
   const topBarPadding = Math.max(insets.top, Platform.OS === 'android' ? 24 : 44) + 6;
 
+  if (isLoadingRoute && !route) {
+    return (
+      <View style={[styles.container, styles.centerContainer]}>
+        <StatusBar barStyle="light-content" />
+        <ActivityIndicator size="large" color="#FF6B00" />
+        <Text style={styles.loadingText}>Loading route details...</Text>
+      </View>
+    );
+  }
+
+  if (!route) {
+    return (
+      <View style={[styles.container, styles.centerContainer]}>
+        <StatusBar barStyle="light-content" />
+        <Ionicons name="map-outline" size={48} color="#FF6B00" style={{ marginBottom: 12 }} />
+        <Text style={styles.errorTitle}>Route Not Found</Text>
+        <Text style={styles.errorSubText}>
+          {fetchError || 'The requested route could not be found on the server.'}
+        </Text>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="light-content" />
 
       {/* ================================================== */}
       {/* MAIN SCROLLABLE CONTENT                            */}
@@ -149,6 +248,16 @@ export default function RouteDetailsScreen() {
             </TouchableOpacity>
 
             <View style={styles.topRightIcons}>
+              {isCreator && (
+                <TouchableOpacity
+                  style={[styles.circleIconButton, styles.deleteIconButton]}
+                  activeOpacity={0.8}
+                  onPress={handleDeleteRoute}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={styles.circleIconButton}
                 activeOpacity={0.8}
@@ -1040,5 +1149,44 @@ const styles = StyleSheet.create({
   imageViewerFullPhoto: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT * 0.75,
+  },
+  deleteIconButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+  },
+  centerContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  loadingText: {
+    color: '#8A8F9B',
+    fontSize: 14,
+    marginTop: 12,
+  },
+  errorTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  errorSubText: {
+    color: '#8A8F9B',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  backButton: {
+    backgroundColor: 'rgba(255, 107, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: '#FF6B00',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  backButtonText: {
+    color: '#FF6B00',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

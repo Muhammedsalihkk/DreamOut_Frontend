@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   SafeAreaView,
@@ -16,12 +16,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   MOCK_OTHER_USER_PROFILE,
   MOCK_OTHER_USER_ROUTES,
-  MOCK_OTHER_USER_SPOTS,
   MOCK_OTHER_USER_EXPERIENCES,
   Route,
   Spot,
   Experience,
 } from '@/data/mockData';
+import { useRouteStore } from '@/store/useRouteStore';
 
 import { OtherProfileHeader } from '@/components/profile/OtherProfileHeader';
 import { ProfileStats } from '@/components/profile/ProfileStats';
@@ -34,10 +34,18 @@ export default function OtherUserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<ProfileTabType>('routes');
 
-  // Load public profile data for requested user (defaults to Arjun Nair mock data)
-  const profile = MOCK_OTHER_USER_PROFILE;
+  const storeSpots = useRouteStore((state) => state.spots);
+  const userCreatedSpots = useMemo(() => {
+    return storeSpots.filter(
+      (s) => s.creator?.id === id || String(s.creator?.id) === String(id)
+    );
+  }, [storeSpots, id]);
+
+  const profile = {
+    ...MOCK_OTHER_USER_PROFILE,
+    spotCount: userCreatedSpots.length,
+  };
   const userCreatedRoutes = MOCK_OTHER_USER_ROUTES;
-  const userCreatedSpots = MOCK_OTHER_USER_SPOTS;
   const userExperiences = MOCK_OTHER_USER_EXPERIENCES;
 
   const handleRoutePress = (route: Route) => {

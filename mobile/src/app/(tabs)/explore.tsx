@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   SafeAreaView,
@@ -16,7 +16,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 
 import {
-  MOCK_ALL_EXPLORE_ROUTES,
   MOCK_ALL_EXPLORE_SPOTS,
   MOCK_PEOPLE,
   Route,
@@ -45,6 +44,10 @@ export default function ExploreScreen() {
   const isLoading = useRouteStore((state) => state.isLoading);
   const fetchFromBackend = useRouteStore((state) => state.fetchFromBackend);
 
+  useEffect(() => {
+    fetchFromBackend();
+  }, []);
+
   // State management for search, category, tab switcher, filter chip, sort option
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -52,9 +55,9 @@ export default function ExploreScreen() {
   const [activeFilter, setActiveFilter] = useState<ExploreFilterType>('popular');
   const [sortOption, setSortOption] = useState<'popular' | 'latest' | 'mostExplored' | 'nearby'>('popular');
 
-  // Combined routes: prioritize real store/backend routes + fallback explore routes
+  // Routes: show ONLY from backend
   const combinedRoutes = useMemo(() => {
-    const mappedStoreRoutes: Route[] = storeRoutes.map((r: DetailedRoute) => ({
+    return storeRoutes.map((r: DetailedRoute) => ({
       id: String(r.id),
       title: r.title,
       image:
@@ -76,10 +79,6 @@ export default function ExploreScreen() {
       timeAgo: r.postedTimeAgo || 'Recently',
       imageCount: r.imageCount || (r.photos ? r.photos.length : 1),
     }));
-
-    const storeIds = new Set(mappedStoreRoutes.map((r) => r.id));
-    const remainingMocks = MOCK_ALL_EXPLORE_ROUTES.filter((r) => !storeIds.has(r.id));
-    return [...mappedStoreRoutes, ...remainingMocks];
   }, [storeRoutes]);
 
   // Spots: show ONLY from backend
@@ -171,7 +170,7 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}

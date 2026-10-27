@@ -18,15 +18,9 @@ import {
   LocationData,
   GoogleMapLocationPickerProps,
 } from './GoogleMapLocationPicker.types';
+import { LocationSearchService, LocationSearchResult as SearchSuggestion } from '@/services/locationSearch.service';
 
 export { LocationData, GoogleMapLocationPickerProps };
-
-interface SearchSuggestion {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-}
 
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
@@ -70,6 +64,7 @@ export const GoogleMapLocationPicker: React.FC<GoogleMapLocationPickerProps> = (
   const [isSearching, setIsSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const searchDebounceRef = useRef<any>(null);
 
   // Geolocation state
   const [isLocatingUser, setIsLocatingUser] = useState(false);
@@ -209,33 +204,26 @@ export const GoogleMapLocationPicker: React.FC<GoogleMapLocationPickerProps> = (
   // ─────────────────────────────────────────────────────────────
   // SEARCH FUNCTIONALITY
   // ─────────────────────────────────────────────────────────────
-  const handleSearchSubmit = async () => {
-    const query = searchQuery.trim();
-    if (!query) return;
+  const handleSearchSubmit = async (queryText?: string) => {
+    const query = (queryText !== undefined ? queryText : searchQuery).trim();
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
 
     setIsSearching(true);
     setSearchError(null);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          query
-        )}&limit=5&addressdetails=1`,
-        {
-          headers: {
-            'Accept-Language': 'en',
-            'User-Agent': 'DreamOutApp/1.0',
-          },
-        }
-      );
+      const results = await LocationSearchService.searchPlaces(query, {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+      });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setSuggestions(data);
-        } else {
-          setSuggestions([]);
-          setSearchError('No matching places found. Try another query.');
-        }
+      if (results.length > 0) {
+        setSuggestions(results);
+      } else {
+        setSuggestions([]);
+        setSearchError(`No matching places found for "${query}". Try adding a city name (e.g. "Calicut").`);
       }
     } catch (err) {
       setSearchError('Search failed. Please check network connection.');
@@ -359,16 +347,25 @@ export const GoogleMapLocationPicker: React.FC<GoogleMapLocationPickerProps> = (
           <Ionicons name="search" size={17} color="#FF6B00" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchBoxInput}
-            placeholder="Search for a location..."
+            placeholder="Search for a location (e.g. HiLITE Mall, Calicut)..."
             placeholderTextColor="#6B7280"
             value={searchQuery}
             onChangeText={(txt) => {
               setSearchQuery(txt);
-              if (txt.length > 2) handleSearchSubmit();
-              if (!txt) setSuggestions([]);
+              if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+              if (!txt.trim()) {
+                setSuggestions([]);
+                setSearchError(null);
+                return;
+              }
+              if (txt.trim().length >= 2) {
+                searchDebounceRef.current = setTimeout(() => {
+                  handleSearchSubmit(txt);
+                }, 400);
+              }
             }}
             returnKeyType="search"
-            onSubmitEditing={handleSearchSubmit}
+            onSubmitEditing={() => handleSearchSubmit()}
           />
           {isSearching ? (
             <ActivityIndicator size="small" color="#FF6B00" />
@@ -579,7 +576,7 @@ export const GoogleMapLocationPicker: React.FC<GoogleMapLocationPickerProps> = (
         onRequestClose={() => setIsFullScreenModal(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
-          <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+          <StatusBar barStyle="light-content" />
 
           {/* Modal Header */}
           <View style={styles.modalHeader}>
@@ -604,15 +601,24 @@ export const GoogleMapLocationPicker: React.FC<GoogleMapLocationPickerProps> = (
             <Ionicons name="search" size={16} color="#FF6B00" style={{ marginRight: 8 }} />
             <TextInput
               style={styles.modalSearchInput}
-              placeholder="Search location..."
+              placeholder="Search location (e.g. HiLITE Mall, Calicut)..."
               placeholderTextColor="#6B7280"
               value={searchQuery}
               onChangeText={(txt) => {
                 setSearchQuery(txt);
-                if (txt.length > 2) handleSearchSubmit();
-                if (!txt) setSuggestions([]);
+                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                if (!txt.trim()) {
+                  setSuggestions([]);
+                  setSearchError(null);
+                  return;
+                }
+                if (txt.trim().length >= 2) {
+                  searchDebounceRef.current = setTimeout(() => {
+                    handleSearchSubmit(txt);
+                  }, 400);
+                }
               }}
-              onSubmitEditing={handleSearchSubmit}
+              onSubmitEditing={() => handleSearchSubmit()}
             />
           </View>
 

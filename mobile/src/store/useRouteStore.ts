@@ -4,110 +4,11 @@ import {
   DetailedRoute,
   RoutePlace,
   RouteHighlight,
-  MOCK_DETAILED_ROUTE,
-  MOCK_ALL_EXPLORE_SPOTS,
   MOCK_USER_PROFILE,
 } from '@/data/mockData';
 import { SpotService } from '@/services/spot.service';
 import { RouteService } from '@/services/route.service';
-
-// Preset Spots for Munnar & other regions matching prompt specs
-export const INITIAL_SPOTS: Spot[] = [
-  {
-    id: 'spot-1',
-    name: 'Kolukkumalai View Point',
-    title: 'Kolukkumalai View Point',
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-    category: 'Viewpoint',
-    tags: ['Viewpoint', 'Mountains'],
-    location: 'Munnar, Idukki',
-    description: 'The highest tea estate in the world offering breathtaking sunrise views above the cloud line.',
-    routeCount: 12,
-  },
-  {
-    id: 'spot-2',
-    name: 'Attukal Waterfalls',
-    title: 'Attukal Waterfalls',
-    image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
-    category: 'Waterfall',
-    tags: ['Waterfall', 'Nature'],
-    location: 'Munnar, Idukki',
-    description: 'A roaring waterfall surrounded by rolling hills and dense green forests between Munnar and Pallivasal.',
-    routeCount: 9,
-  },
-  {
-    id: 'spot-3',
-    name: 'Tea Gardens Trail',
-    title: 'Tea Gardens Trail',
-    image: 'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=800&q=80',
-    category: 'Tea Garden',
-    tags: ['Tea Garden', 'Trekking'],
-    location: 'Munnar, Idukki',
-    description: 'Vast emerald green tea plantations with walking paths cutting through organic tea bushes.',
-    routeCount: 15,
-  },
-  {
-    id: 'spot-4',
-    name: 'Echo Point',
-    title: 'Echo Point',
-    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
-    category: 'Viewpoint',
-    tags: ['Viewpoint', 'Lake'],
-    location: 'Munnar, Idukki',
-    description: 'Picturesque spot where voices echo back natural acoustics across the misty mountain lake.',
-    routeCount: 11,
-  },
-  {
-    id: 'spot-5',
-    name: 'Top Station',
-    title: 'Top Station',
-    image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
-    category: 'Viewpoint',
-    tags: ['Viewpoint', 'Sunrise'],
-    location: 'Munnar, Idukki',
-    description: 'Highest point in Munnar on the Kerala-Tamil Nadu border offering panoramic valley vistas.',
-    routeCount: 14,
-  },
-  {
-    id: 'spot-6',
-    name: 'Mattupetty Dam',
-    title: 'Mattupetty Dam',
-    image: 'https://images.unsplash.com/photo-1511884642898-4c92249e20b6?auto=format&fit=crop&w=800&q=80',
-    category: 'Lake',
-    tags: ['Lake', 'Nature'],
-    location: 'Munnar, Idukki',
-    description: 'Serene storage reservoir nestled in the hills of Munnar, popular for boating and elephant sightings.',
-    routeCount: 8,
-  },
-  {
-    id: 'spot-7',
-    name: 'Forest Walk',
-    title: 'Forest Walk',
-    image: 'https://images.unsplash.com/photo-1511884642898-4c92249e20b6?auto=format&fit=crop&w=800&q=80',
-    category: 'Nature',
-    tags: ['Nature', 'Trail'],
-    location: 'Munnar, Idukki',
-    description: 'Peaceful shaded trail beneath eucalyptus trees and high altitude mountain vegetation.',
-    routeCount: 7,
-  },
-  {
-    id: 'spot-8',
-    name: 'Sunset Rock',
-    title: 'Sunset Rock',
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-    category: 'Viewpoint',
-    tags: ['Viewpoint', 'Sunset'],
-    location: 'Munnar, Idukki',
-    description: 'Dramatic granite cliff edge where travelers gather to watch golden mountain sunsets.',
-    routeCount: 8,
-  },
-  ...MOCK_ALL_EXPLORE_SPOTS,
-];
-
-// Deduplicate initial spots by ID or Name
-const UNIQUE_INITIAL_SPOTS = Array.from(
-  new Map(INITIAL_SPOTS.map((spot) => [spot.id, spot])).values()
-);
+import { useAuthStore } from '@/store/useAuthStore';
 
 export interface CreateRouteInput {
   title: string;
@@ -128,14 +29,17 @@ interface RouteStoreState {
   isInitialized: boolean;
   fetchFromBackend: () => Promise<void>;
   addSpot: (spotData: Omit<Spot, 'id'>) => Promise<Spot>;
-  addRoute: (input: CreateRouteInput) => DetailedRoute;
+  deleteSpot: (id: string) => Promise<boolean>;
+  addRoute: (input: CreateRouteInput) => Promise<DetailedRoute>;
+  updateRoute: (id: string, input: Partial<CreateRouteInput>) => Promise<DetailedRoute>;
+  deleteRoute: (id: string) => Promise<boolean>;
   getRouteById: (id: string) => DetailedRoute | undefined;
   getSpotById: (id: string) => Spot | undefined;
 }
 
 export const useRouteStore = create<RouteStoreState>((set, get) => ({
   spots: [],
-  routes: [MOCK_DETAILED_ROUTE],
+  routes: [],
   isLoading: false,
   error: null,
   isInitialized: false,
@@ -161,11 +65,12 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
         updatedState.spots = [];
       }
 
-      if (backendRoutes.status === 'fulfilled' && backendRoutes.value.length > 0) {
-        // Merge backend routes with fallback route
-        const backendRouteIds = new Set(backendRoutes.value.map((r) => r.id));
-        const remainingFallbacks = [MOCK_DETAILED_ROUTE].filter((r) => !backendRouteIds.has(r.id));
-        updatedState.routes = [...backendRoutes.value, ...remainingFallbacks];
+      if (backendRoutes.status === 'fulfilled') {
+        // Show routes ONLY from backend
+        updatedState.routes = backendRoutes.value;
+      } else {
+        console.warn('[useRouteStore] Failed to fetch backend routes:', backendRoutes.reason);
+        updatedState.routes = [];
       }
 
       set(updatedState as RouteStoreState);
@@ -176,6 +81,7 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
   },
 
   addSpot: async (spotData) => {
+    const authUser = useAuthStore.getState().user;
     const persistedSpot = await SpotService.createSpot({
       name: spotData.name,
       category: spotData.category,
@@ -184,34 +90,49 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
       image: spotData.image,
       latitude: spotData.latitude,
       longitude: spotData.longitude,
+      userId: authUser?.id ? Number(authUser.id) : undefined,
     });
 
     const fullSpot: Spot = {
       ...persistedSpot,
       title: persistedSpot.name,
       tags: [persistedSpot.category || 'Nature', 'Spot'],
-      creator: {
+      creator: persistedSpot.creator || (authUser ? {
+        id: String(authUser.id),
+        name: authUser.name || 'Explorer',
+        username: (authUser.name || 'explorer').toLowerCase().replace(/\s+/g, '_'),
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      } : {
         id: MOCK_USER_PROFILE.id,
         name: MOCK_USER_PROFILE.name,
         username: MOCK_USER_PROFILE.username,
         avatar: MOCK_USER_PROFILE.avatar,
-      },
+      }),
       routeCount: 1,
     };
 
     set((state) => ({
-      spots: [fullSpot, ...state.spots],
+      spots: [fullSpot, ...state.spots.filter((s) => s.id !== fullSpot.id)],
     }));
 
     return fullSpot;
   },
 
-  addRoute: (input) => {
-    const tempRouteId = `route-${Date.now()}`;
+  deleteSpot: async (id: string) => {
+    const success = await SpotService.deleteSpot(id);
+    if (success) {
+      set((state) => ({
+        spots: state.spots.filter((s) => s.id !== id),
+      }));
+    }
+    return success;
+  },
+
+  addRoute: async (input) => {
     const formattedPlaces: RoutePlace[] = input.places.map((spot, index) => {
       const dist = index === 0 ? '0 km' : `${(index * 1.8 + Math.random() * 0.5).toFixed(1)} km`;
       return {
-        id: `p-${tempRouteId}-${index + 1}`,
+        id: `p-${spot.id}-${index + 1}`,
         spotId: spot.id,
         order: index + 1,
         name: spot.name || spot.title || 'Spot',
@@ -226,86 +147,60 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
     const estimatedDistanceKm = Math.max(3, Math.round(totalPlacesCount * 1.8));
     const estimatedDurationHours = `${Math.max(2, Math.round(totalPlacesCount * 0.7))}–${Math.max(3, Math.round(totalPlacesCount * 1.1))} hours`;
 
-    const highlights: RouteHighlight[] = (input.highlights && input.highlights.length > 0
+    const highlights: string[] = (input.highlights && input.highlights.length > 0
       ? input.highlights
       : ['Scenic Viewpoints', 'Nature Trails', 'Tea Gardens']
-    ).map((title, idx) => ({
-      id: `h-${tempRouteId}-${idx + 1}`,
-      title,
-      description: `Highlight section of ${input.title}`,
-      longDescription: `Experience the breathtaking ${title.toLowerCase()} along the ${input.title} route.`,
-      image: input.coverImage,
-      relatedSpots: formattedPlaces.slice(0, 3),
-      photos: [input.coverImage],
-    }));
+    ).map((h) => (typeof h === 'string' ? h : (h as any).title || 'Scenic Highlight'));
 
-    const newRoute: DetailedRoute = {
-      id: tempRouteId,
+    const persistedRoute = await RouteService.createRoute({
       title: input.title,
-      coverImage:
-        input.coverImage ||
-        'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
+      coverImage: input.coverImage,
       shortDescription: input.shortDescription,
       description: input.shortDescription,
       location: formattedPlaces[0]?.location || 'Munnar, Idukki',
-      placeCount: totalPlacesCount,
-      distance: `${estimatedDistanceKm} km`,
-      duration: estimatedDurationHours,
-      category: input.category,
+      category: input.category || 'Nature',
       difficulty: input.difficulty,
       visibility: input.visibility,
-      creator: {
-        id: MOCK_USER_PROFILE.id,
-        name: MOCK_USER_PROFILE.name,
-        username: MOCK_USER_PROFILE.username,
-        avatar: MOCK_USER_PROFILE.avatar,
-        isVerified: true,
-        routeCount: MOCK_USER_PROFILE.routeCount + 1,
-      },
-      likesCount: 1,
-      commentsCount: 0,
-      exploredCount: 0,
-      postedTimeAgo: 'Just now',
-      imageCount: input.places.length + 1,
-      highlights,
+      distance: `${estimatedDistanceKm} km`,
+      duration: estimatedDurationHours,
       places: formattedPlaces,
-      photos: [input.coverImage, ...input.places.map((p) => p.image)],
-      exploredPeople: [],
-      explorerExperiences: [],
-      experiences: [],
-    };
+      highlights,
+    });
 
-    // 1. Optimistic local state update
     set((state) => ({
-      routes: [newRoute, ...state.routes],
+      routes: [persistedRoute, ...state.routes.filter((r) => r.id !== persistedRoute.id)],
     }));
 
-    // 2. Asynchronous backend persistence
-    RouteService.createRoute({
-      title: newRoute.title,
-      coverImage: newRoute.coverImage,
-      shortDescription: newRoute.shortDescription,
-      description: newRoute.description,
-      location: newRoute.location,
-      category: newRoute.category || 'Nature',
-      difficulty: newRoute.difficulty,
-      visibility: newRoute.visibility,
-      distance: newRoute.distance,
-      duration: newRoute.duration,
-      places: formattedPlaces,
-      highlights: (input.highlights || []).map((h) => (typeof h === 'string' ? h : (h as any).title)),
-    })
-      .then((persistedRoute) => {
-        // Swap temp ID with real DB ID
-        set((state) => ({
-          routes: state.routes.map((r) => (r.id === tempRouteId ? persistedRoute : r)),
-        }));
-      })
-      .catch((backendErr) => {
-        console.warn('[useRouteStore] Could not persist route to backend:', backendErr);
-      });
+    return persistedRoute;
+  },
 
-    return newRoute;
+  updateRoute: async (id, input) => {
+    const updated = await RouteService.updateRoute(id, {
+      ...(input.title !== undefined && { title: input.title }),
+      ...(input.coverImage !== undefined && { coverImage: input.coverImage }),
+      ...(input.shortDescription !== undefined && { shortDescription: input.shortDescription, description: input.shortDescription }),
+      ...(input.category !== undefined && { category: input.category }),
+      ...(input.difficulty !== undefined && { difficulty: input.difficulty }),
+      ...(input.visibility !== undefined && { visibility: input.visibility }),
+      ...(input.places !== undefined && { places: input.places }),
+      ...(input.highlights !== undefined && { highlights: input.highlights }),
+    });
+
+    set((state) => ({
+      routes: state.routes.map((r) => (r.id === String(id) ? updated : r)),
+    }));
+
+    return updated;
+  },
+
+  deleteRoute: async (id: string) => {
+    const success = await RouteService.deleteRoute(id);
+    if (success) {
+      set((state) => ({
+        routes: state.routes.filter((r) => String(r.id) !== String(id)),
+      }));
+    }
+    return success;
   },
 
   getRouteById: (id) => {

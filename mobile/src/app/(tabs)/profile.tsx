@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   SafeAreaView,
@@ -9,19 +9,20 @@ import {
   Image,
   Alert,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 
 import {
   MOCK_USER_PROFILE,
-  MOCK_USER_CREATED_ROUTES,
-  MOCK_USER_CREATED_SPOTS,
   MOCK_USER_EXPERIENCES,
   Route,
   Spot,
   Experience,
 } from '@/data/mockData';
+import { useRouteStore } from '@/store/useRouteStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileStats } from '@/components/profile/ProfileStats';
@@ -33,9 +34,56 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTabType>('routes');
 
-  const profile = MOCK_USER_PROFILE;
-  const createdRoutes = MOCK_USER_CREATED_ROUTES;
-  const createdSpots = MOCK_USER_CREATED_SPOTS;
+  const storeSpots = useRouteStore((state) => state.spots);
+  const storeRoutes = useRouteStore((state) => state.routes);
+  const fetchFromBackend = useRouteStore((state) => state.fetchFromBackend);
+  const isLoading = useRouteStore((state) => state.isLoading);
+  const authUser = useAuthStore((state) => state.user);
+
+  const createdSpots = storeSpots;
+
+  const createdRoutes: Route[] = useMemo(() => {
+    const currentUserId = authUser?.id ? String(authUser.id) : undefined;
+    const currentUserName = authUser?.name;
+
+    const filtered = storeRoutes.filter((r) => {
+      if (!currentUserId && !currentUserName) return true;
+      return (
+        (currentUserId && String(r.creator?.id) === currentUserId) ||
+        (currentUserName && r.creator?.name === currentUserName)
+      );
+    });
+
+    return filtered.map((r) => ({
+      id: String(r.id),
+      title: r.title,
+      image:
+        r.coverImage ||
+        (r.photos && r.photos[0]) ||
+        'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
+      creator: r.creator || {
+        id: 'u1',
+        name: 'Explorer',
+        username: 'explorer',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      },
+      description: r.description || r.shortDescription || '',
+      location: r.location,
+      category: r.category,
+      likesCount: r.likesCount || 0,
+      commentsCount: r.commentsCount || 0,
+      completedCount: r.exploredCount || 0,
+      timeAgo: r.postedTimeAgo || 'Recently',
+      imageCount: r.imageCount || (r.photos ? r.photos.length : 1),
+    }));
+  }, [storeRoutes, authUser]);
+
+  const profile = {
+    ...MOCK_USER_PROFILE,
+    name: authUser?.name || MOCK_USER_PROFILE.name,
+    spotCount: createdSpots.length,
+    routeCount: createdRoutes.length,
+  };
   const userExperiences = MOCK_USER_EXPERIENCES;
 
   const handleRoutePress = (route: Route) => {
@@ -52,11 +100,19 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={fetchFromBackend}
+            tintColor="#FF6B00"
+            colors={['#FF6B00']}
+          />
+        }
       >
         {/* 1. Cinematic Profile Header */}
         <ProfileHeader profile={profile} isOwnProfile={true} />

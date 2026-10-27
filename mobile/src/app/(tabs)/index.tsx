@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { StyleSheet, SafeAreaView, ScrollView, Alert, StatusBar, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  Alert,
+  StatusBar,
+  Platform,
+  RefreshControl,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { HomeHeader } from '@/components/home/HomeHeader';
@@ -9,10 +17,17 @@ import { RouteSection } from '@/components/home/RouteSection';
 import { SpotSection } from '@/components/home/SpotSection';
 import { CreateModal } from '@/components/home/CreateModal';
 import { Route, Spot } from '@/data/mockData';
+import { useRouteStore } from '@/store/useRouteStore';
 
 export default function HomeScreen() {
   const router = useRouter();
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const fetchFromBackend = useRouteStore((state) => state.fetchFromBackend);
+  const isLoading = useRouteStore((state) => state.isLoading);
+
+  useEffect(() => {
+    fetchFromBackend();
+  }, []);
 
   const handleSeeAllRoutes = () => {
     router.push('/explore');
@@ -37,6 +52,14 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={fetchFromBackend}
+            tintColor="#FF6B00"
+            colors={['#FF6B00']}
+          />
+        }
       >
         {/* 1. Header with Profile & Notification Navigation */}
         <HomeHeader

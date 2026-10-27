@@ -110,7 +110,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="light-content" />
 
       {/* Full Screen Background Mountain Image */}
       <ImageBackground

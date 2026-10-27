@@ -131,7 +131,7 @@ export default function SignUpScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="light-content" />
 
       <ImageBackground
         source={require('@/assets/images/login-background.jpg')}

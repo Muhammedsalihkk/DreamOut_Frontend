@@ -1,5 +1,6 @@
 import { API_BASE_URL } from './api.config';
 import { DetailedRoute, RoutePlace, RouteHighlight, MOCK_USER_PROFILE } from '@/data/mockData';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export interface BackendRoute {
   id: number;
@@ -165,6 +166,10 @@ export class RouteService {
     highlights?: string[];
   }): Promise<DetailedRoute> {
     try {
+      const authState = useAuthStore.getState();
+      const activeUserId = authState.user?.id ? Number(authState.user.id) : undefined;
+      const token = authState.token;
+
       const payload = {
         title: routeData.title.trim(),
         coverImage: routeData.coverImage || null,
@@ -178,11 +183,19 @@ export class RouteService {
         duration: routeData.duration || null,
         places: routeData.places || [],
         highlights: routeData.highlights || [],
+        ...(activeUserId ? { userId: activeUserId } : {}),
       };
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
       const response = await fetch(`${API_BASE_URL}/routes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -196,6 +209,85 @@ export class RouteService {
     } catch (err) {
       console.warn('[RouteService] Error creating route in backend:', err);
       throw err;
+    }
+  }
+
+  /**
+   * Update an existing route in the backend
+   */
+  static async updateRoute(
+    id: string | number,
+    routeData: Partial<{
+      title: string;
+      coverImage: string | null;
+      shortDescription: string | null;
+      description: string | null;
+      location: string | null;
+      category: string;
+      difficulty: string;
+      visibility: string;
+      distance: string | null;
+      duration: string | null;
+      places: any[];
+      highlights: string[];
+      likesCount: number;
+      commentsCount: number;
+    }>
+  ): Promise<DetailedRoute> {
+    try {
+      const authState = useAuthStore.getState();
+      const token = authState.token;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/routes/${id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(routeData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update route in backend');
+      }
+
+      const result = await response.json();
+      return this.formatRoute(result.data);
+    } catch (err) {
+      console.warn(`[RouteService] Error updating route ${id} in backend:`, err);
+      throw err;
+    }
+  }
+
+  /**
+   * Delete a route in the backend by ID
+   */
+  static async deleteRoute(id: string | number): Promise<boolean> {
+    try {
+      const authState = useAuthStore.getState();
+      const token = authState.token;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/routes/${id}`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      return response.ok;
+    } catch (err) {
+      console.warn(`[RouteService] Error deleting route ${id} in backend:`, err);
+      return false;
     }
   }
 }

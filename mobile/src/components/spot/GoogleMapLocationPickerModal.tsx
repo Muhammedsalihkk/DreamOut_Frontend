@@ -32,12 +32,7 @@ interface GoogleMapLocationPickerModalProps {
   initialLongitude?: number;
 }
 
-interface GeocodeResult {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-}
+import { LocationSearchService, LocationSearchResult as GeocodeResult } from '@/services/locationSearch.service';
 
 const PRESET_POPULAR_PLACES: { name: string; tag: string; lat: number; lng: number }[] = [
   { name: 'Baga Beach, Goa', tag: '🏖️ Beach', lat: 15.5553, lng: 73.7517 },
@@ -66,6 +61,7 @@ export const GoogleMapLocationPickerModal: React.FC<GoogleMapLocationPickerModal
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<GeocodeResult[]>([]);
   const [isGpsLoading, setIsGpsLoading] = useState(false);
+  const searchDebounceRef = useRef<any>(null);
 
   // Sync initial props when modal becomes visible
   useEffect(() => {
@@ -78,33 +74,21 @@ export const GoogleMapLocationPickerModal: React.FC<GoogleMapLocationPickerModal
     }
   }, [visible, initialLocationName, initialLatitude, initialLongitude]);
 
-  // Handle Search using OpenStreetMap Nominatim geocoding (reliable, zero API key required)
+  // Handle Search using LocationSearchService (Photon with typo-tolerance + regional bias)
   const handleSearchSubmit = async (queryText?: string) => {
     const textToSearch = (queryText !== undefined ? queryText : searchQuery).trim();
-    if (!textToSearch || textToSearch.length < 2) return;
+    if (!textToSearch || textToSearch.length < 2) {
+      setSearchResults([]);
+      return;
+    }
 
     setIsSearching(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          textToSearch
-        )}&limit=5&addressdetails=1`,
-        {
-          headers: {
-            'Accept-Language': 'en',
-            'User-Agent': 'DreamOutApp/1.0',
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setSearchResults(data);
-        } else {
-          setSearchResults([]);
-        }
-      }
+      const results = await LocationSearchService.searchPlaces(textToSearch, {
+        latitude,
+        longitude,
+      });
+      setSearchResults(results);
     } catch (err) {
       console.warn('[GoogleMapPicker] Geocoding error:', err);
     } finally {
@@ -256,13 +240,20 @@ export const GoogleMapLocationPickerModal: React.FC<GoogleMapLocationPickerModal
               <Ionicons name="search" size={18} color="#FF6B00" style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search beach, cafe, city or landmark..."
+                placeholder="Search beach, mall, cafe, or landmark (e.g. HiLITE Mall)..."
                 placeholderTextColor="#6B7280"
                 value={searchQuery}
                 onChangeText={(text) => {
                   setSearchQuery(text);
-                  if (text.length > 2) {
-                    handleSearchSubmit(text);
+                  if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                  if (!text.trim()) {
+                    setSearchResults([]);
+                    return;
+                  }
+                  if (text.trim().length >= 2) {
+                    searchDebounceRef.current = setTimeout(() => {
+                      handleSearchSubmit(text);
+                    }, 400);
                   }
                 }}
                 returnKeyType="search"

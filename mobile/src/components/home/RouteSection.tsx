@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { MOCK_ROUTES, Route } from '@/data/mockData';
+import { Route } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
 
 interface RouteSectionProps {
@@ -18,7 +18,7 @@ export const RouteSection: React.FC<RouteSectionProps> = ({
   const storeRoutes = useRouteStore((state) => state.routes);
 
   const displayRoutes: Route[] = useMemo(() => {
-    const mappedStoreRoutes: Route[] = storeRoutes.map((r) => ({
+    return storeRoutes.map((r) => ({
       id: String(r.id),
       title: r.title,
       image:
@@ -40,10 +40,6 @@ export const RouteSection: React.FC<RouteSectionProps> = ({
       timeAgo: r.postedTimeAgo || 'Recently',
       imageCount: r.imageCount || (r.photos ? r.photos.length : 1),
     }));
-
-    const storeIds = new Set(mappedStoreRoutes.map((r) => r.id));
-    const remainingMock = MOCK_ROUTES.filter((r) => !storeIds.has(r.id));
-    return [...mappedStoreRoutes, ...remainingMock];
   }, [storeRoutes]);
 
   return (
@@ -56,13 +52,20 @@ export const RouteSection: React.FC<RouteSectionProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Horizontally Scrollable Route Cards */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {displayRoutes.map((route: Route) => (
+      {/* Horizontally Scrollable Route Cards or Empty State */}
+      {displayRoutes.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="map-outline" size={36} color="#6B7280" style={{ marginBottom: 8 }} />
+          <Text style={styles.emptyTitle}>No routes yet</Text>
+          <Text style={styles.emptySubtitle}>Tap '+' below to create the first route!</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {displayRoutes.map((route: Route) => (
           <TouchableOpacity
             key={route.id}
             style={styles.card}
@@ -254,5 +257,27 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 11,
     fontWeight: '500',
+  },
+  emptyContainer: {
+    marginHorizontal: 16,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    backgroundColor: '#161920',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#232732',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    textAlign: 'center',
   },
 });

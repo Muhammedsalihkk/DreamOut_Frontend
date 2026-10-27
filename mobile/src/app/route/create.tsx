@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Alert,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -74,7 +75,13 @@ export default function CreateRouteScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { spots: allSpots, addSpot, addRoute } = useRouteStore();
+  const { spots: allSpots, addSpot, addRoute, fetchFromBackend } = useRouteStore();
+
+  useEffect(() => {
+    if (allSpots.length === 0) {
+      fetchFromBackend();
+    }
+  }, []);
 
   // Main Create Route Step: 1 | 2 | 3
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -100,18 +107,8 @@ export default function CreateRouteScreen() {
   const [descError, setDescError] = useState<string | null>(null);
   const [placesError, setPlacesError] = useState<string | null>(null);
 
-  // STEP 2 SELECTED PLACES STATE
-  // Initialized with existing spots matching Munnar Peak Trail prompt example
-  const [selectedSpots, setSelectedSpots] = useState<Spot[]>(() => {
-    const defaultSpotNames = [
-      'Kolukkumalai View Point',
-      'Attukal Waterfalls',
-      'Tea Gardens Trail',
-      'Echo Point',
-    ];
-    const initial = allSpots.filter((s) => defaultSpotNames.includes(s.name));
-    return initial.length > 0 ? initial : allSpots.slice(0, 4);
-  });
+  // STEP 2 SELECTED PLACES STATE: populated solely with chosen backend spots
+  const [selectedSpots, setSelectedSpots] = useState<Spot[]>([]);
 
   // SCREEN 2 — SEARCH SPOTS STATE
   const [searchQuery, setSearchQuery] = useState('');
@@ -359,7 +356,7 @@ export default function CreateRouteScreen() {
   };
 
   // PUBLISH ROUTE ACTION
-  const handlePublishRoute = () => {
+  const handlePublishRoute = async () => {
     if (selectedSpots.length < 2) {
       setPlacesError('Please add at least 2 places to your route.');
       setCurrentStep(2);
@@ -368,8 +365,8 @@ export default function CreateRouteScreen() {
 
     setIsPublishing(true);
 
-    setTimeout(() => {
-      const createdRoute = addRoute({
+    try {
+      const createdRoute = await addRoute({
         title: routeTitle.trim(),
         coverImage,
         shortDescription: shortDescription.trim(),
@@ -381,9 +378,12 @@ export default function CreateRouteScreen() {
       });
 
       setPublishedRoute(createdRoute);
-      setIsPublishing(false);
       setIsSuccess(true);
-    }, 1200);
+    } catch (err: any) {
+      Alert.alert('Publish Error', err?.message || 'Failed to publish route to backend.');
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   // Total count of places selected (existing route spots + newly checked in search)
@@ -396,7 +396,7 @@ export default function CreateRouteScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       {/* ================================================== */}
       {/* 1. SCREEN 1 — ADD PLACE OPTIONS                    */}

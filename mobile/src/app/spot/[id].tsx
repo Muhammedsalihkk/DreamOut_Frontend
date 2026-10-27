@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,6 +12,8 @@ import {
   Share,
   Platform,
   Dimensions,
+  Linking,
+  ActivityIndicator,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -20,12 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  MOCK_DETAILED_SPOT,
-  MOCK_JOURNEY_DETAILS,
-  Spot,
-  JourneyMomentItem,
-} from '@/data/mockData';
+import { Spot } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
 import { SpotService } from '@/services/spot.service';
 
@@ -38,36 +35,70 @@ export default function SpotDetailsScreen() {
 
   // Find target spot from store/backend
   const getSpotById = useRouteStore((state) => state.getSpotById);
+  const deleteSpot = useRouteStore((state) => state.deleteSpot);
+  const storeRoutes = useRouteStore((state) => state.routes);
+  const storeSpots = useRouteStore((state) => state.spots);
+
   const matchedSpot = id ? getSpotById(id) : null;
-  const [backendSpot, setBackendSpot] = useState<Spot | null>(null);
+  const [backendSpot, setBackendSpot] = useState<Spot | null>(matchedSpot || null);
+  const [isLoadingSpot, setIsLoadingSpot] = useState(!matchedSpot);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id && !matchedSpot) {
+    if (id) {
+      if (!matchedSpot) {
+        setIsLoadingSpot(true);
+      }
       SpotService.getSpotById(id)
-        .then((s) => setBackendSpot(s))
-        .catch((err) => console.warn('[SpotDetails] Failed to fetch spot:', err));
+        .then((s) => {
+          setBackendSpot(s);
+          setFetchError(null);
+        })
+        .catch((err) => {
+          console.warn('[SpotDetails] Failed to fetch spot:', err);
+          if (!matchedSpot) {
+            setFetchError('Unable to load spot from backend.');
+          }
+        })
+        .finally(() => {
+          setIsLoadingSpot(false);
+        });
     }
-  }, [id, matchedSpot]);
+  }, [id]);
 
-  const activeSpot = matchedSpot || backendSpot;
+  const activeSpot = backendSpot || matchedSpot;
 
-  const spot: Spot = {
-    ...MOCK_DETAILED_SPOT,
-    ...(activeSpot || {}),
-    // Ensure spot details exist
-    tags: activeSpot?.tags || (activeSpot?.category ? [activeSpot.category] : MOCK_DETAILED_SPOT.tags),
-    heroPhotos: activeSpot?.heroPhotos || (activeSpot?.image ? [activeSpot.image] : MOCK_DETAILED_SPOT.heroPhotos),
-    spotPhotos: activeSpot?.spotPhotos || (activeSpot?.image ? [activeSpot.image] : MOCK_DETAILED_SPOT.spotPhotos),
-    elevation: activeSpot?.elevation || MOCK_DETAILED_SPOT.elevation,
-    bestTime: activeSpot?.bestTime || MOCK_DETAILED_SPOT.bestTime,
-    distanceText: activeSpot?.distanceText || MOCK_DETAILED_SPOT.distanceText,
-    nearbyTown: activeSpot?.nearbyTown || activeSpot?.location || MOCK_DETAILED_SPOT.nearbyTown,
-    aboutDescription: activeSpot?.aboutDescription || activeSpot?.description || MOCK_DETAILED_SPOT.aboutDescription,
-    routesContaining: activeSpot?.routesContaining || MOCK_DETAILED_SPOT.routesContaining,
-    nearbySpotsList: activeSpot?.nearbySpotsList || MOCK_DETAILED_SPOT.nearbySpotsList,
-    visitorTips: activeSpot?.visitorTips || MOCK_DETAILED_SPOT.visitorTips,
-    stories: activeSpot?.stories || MOCK_DETAILED_SPOT.stories,
-  };
+  // Real routes that include this spot matching Spot['routesContaining']
+  const routesContaining = useMemo(() => {
+    if (!activeSpot) return [];
+    return storeRoutes
+      .filter((r) =>
+        r.places?.some((p) => String(p.spotId) === String(activeSpot.id) || p.name === activeSpot.name)
+      )
+      .map((r) => ({
+        id: String(r.id),
+        title: r.title,
+        image: r.coverImage || (r.photos && r.photos[0]) || '',
+        placesCount: r.places ? r.places.length : 1,
+        distance: r.distance || '10 km',
+        duration: r.duration || '2 hrs',
+      }));
+  }, [storeRoutes, activeSpot]);
+
+  // Real nearby spots from backend spots matching Spot['nearbySpotsList']
+  const nearbySpotsList = useMemo(() => {
+    if (!activeSpot) return [];
+    return storeSpots
+      .filter((s) => String(s.id) !== String(activeSpot.id))
+      .slice(0, 4)
+      .map((s) => ({
+        id: String(s.id),
+        name: s.name,
+        image: s.image,
+        category: s.category || 'Spot',
+        distanceAway: s.location || 'Nearby',
+      }));
+  }, [storeSpots, activeSpot]);
 
   // State Management
   const [isSaved, setIsSaved] = useState(false);
@@ -76,11 +107,45 @@ export default function SpotDetailsScreen() {
   const [isAboutExpanded, setIsAboutExpanded] = useState(false);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
-  const [likedMomentsMap, setLikedMomentsMap] = useState<Record<string, boolean>>({});
+
+  if (isLoadingSpot && !activeSpot) {
+    return (
+      <View style={[styles.container, styles.centerContainer]}>
+        <StatusBar barStyle="light-content" />
+        <ActivityIndicator size="large" color="#FF6B00" />
+        <Text style={styles.loadingText}>Loading spot details...</Text>
+      </View>
+    );
+  }
+
+  if (!activeSpot) {
+    return (
+      <View style={[styles.container, styles.centerContainer]}>
+        <StatusBar barStyle="light-content" />
+        <Ionicons name="location-outline" size={48} color="#FF6B00" style={{ marginBottom: 12 }} />
+        <Text style={styles.errorTitle}>Spot Not Found</Text>
+        <Text style={styles.errorSubText}>
+          {fetchError || 'The requested spot could not be found on the server.'}
+        </Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const spot: Spot = {
+    ...activeSpot,
+    tags: activeSpot.tags || (activeSpot.category ? [activeSpot.category] : ['Spot']),
+    heroPhotos: activeSpot.heroPhotos?.length ? activeSpot.heroPhotos : [activeSpot.image],
+    spotPhotos: activeSpot.spotPhotos?.length ? activeSpot.spotPhotos : [activeSpot.image],
+    aboutDescription: activeSpot.aboutDescription || activeSpot.description || '',
+    routesContaining,
+    nearbySpotsList,
+  };
 
   const heroPhotosList = spot.heroPhotos || [spot.image];
   const spotPhotosList = spot.spotPhotos || heroPhotosList;
-  const explorerMoments = MOCK_JOURNEY_DETAILS.moments;
 
   const handleShare = async () => {
     try {
@@ -92,6 +157,57 @@ export default function SpotDetailsScreen() {
     }
   };
 
+  const handleSpotOptions = () => {
+    Alert.alert(
+      spot.name || spot.title,
+      'Select an action',
+      [
+        { text: 'Share Spot', onPress: handleShare },
+        {
+          text: 'Delete Spot',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Delete Spot',
+              `Are you sure you want to delete "${spot.name || spot.title}"?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const deleted = await deleteSpot(spot.id);
+                    if (deleted) {
+                      Alert.alert('Deleted', 'Spot deleted successfully.');
+                      router.back();
+                    } else {
+                      Alert.alert('Error', 'Failed to delete spot.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleGetDirections = () => {
+    const lat = spot.latitude || 10.0889;
+    const lng = spot.longitude || 77.0595;
+    const label = encodeURIComponent(spot.name || spot.title || 'Spot');
+    const url = Platform.select({
+      ios: `maps:0,0?q=${label}@${lat},${lng}`,
+      android: `geo:0,0?q=${lat},${lng}(${label})`,
+      default: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+    });
+    Linking.openURL(url!).catch(() => {
+      Alert.alert('Directions', `Location: ${spot.location || `${lat}, ${lng}`}`);
+    });
+  };
+
   const handleHeroScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const slideIndex = Math.round(
       event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
@@ -101,16 +217,9 @@ export default function SpotDetailsScreen() {
     }
   };
 
-  const toggleLikeMoment = (momentId: string) => {
-    setLikedMomentsMap((prev) => ({
-      ...prev,
-      [momentId]: !prev[momentId],
-    }));
-  };
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="light-content" />
 
       <ScrollView
         contentContainerStyle={[
@@ -182,7 +291,7 @@ export default function SpotDetailsScreen() {
               <TouchableOpacity
                 style={styles.circleButton}
                 activeOpacity={0.8}
-                onPress={() => Alert.alert('Options', spot.name || spot.title)}
+                onPress={handleSpotOptions}
               >
                 <Ionicons name="ellipsis-horizontal" size={19} color="#FFFFFF" />
               </TouchableOpacity>
@@ -219,7 +328,7 @@ export default function SpotDetailsScreen() {
             <View style={styles.categoryBadge}>
               <Text style={styles.categoryBadgeText}>{spot.category}</Text>
             </View>
-            {(spot.tags || ['Scenic', 'Popular']).map((tag, idx) => (
+            {(spot.tags || ['Scenic', 'Spot']).map((tag, idx) => (
               <View key={idx} style={styles.tagBadge}>
                 <Text style={styles.tagBadgeText}>{tag}</Text>
               </View>
@@ -230,23 +339,22 @@ export default function SpotDetailsScreen() {
           <View style={styles.statsBar}>
             <View style={styles.statItem}>
               <View style={styles.statValueRow}>
-                <Ionicons name="star" size={15} color="#FF6B00" style={{ marginRight: 4 }} />
-                <Text style={styles.statValueText}>{spot.rating || 4.8}</Text>
-                <Text style={styles.statSubText}>({spot.ratingCount || 324})</Text>
+                <Ionicons name="compass" size={15} color="#FF6B00" style={{ marginRight: 4 }} />
+                <Text style={styles.statValueText}>{routesContaining.length}</Text>
               </View>
-              <Text style={styles.statLabel}>Community Rating</Text>
+              <Text style={styles.statLabel}>Routes</Text>
             </View>
 
             <View style={styles.statDivider} />
 
             <View style={styles.statItem}>
               <View style={styles.statValueRow}>
-                <Ionicons name="people" size={15} color="#FF6B00" style={{ marginRight: 4 }} />
-                <Text style={styles.statValueText}>
-                  {spot.exploredCount ? `${(spot.exploredCount / 1000).toFixed(1)}K` : '12.4K'}
+                <Ionicons name="person" size={15} color="#FF6B00" style={{ marginRight: 4 }} />
+                <Text style={styles.statValueText} numberOfLines={1}>
+                  {spot.creator?.name || 'Explorer'}
                 </Text>
               </View>
-              <Text style={styles.statLabel}>Visited</Text>
+              <Text style={styles.statLabel}>Added By</Text>
             </View>
           </View>
         </View>
@@ -254,24 +362,26 @@ export default function SpotDetailsScreen() {
         {/* ================================================== */}
         {/* 3. SHORT DESCRIPTION                             */}
         {/* ================================================== */}
-        <View style={styles.sectionContainer}>
-          <Text
-            style={styles.descriptionText}
-            numberOfLines={isDescriptionExpanded ? undefined : 2}
-          >
-            "{spot.description}"
-          </Text>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setIsDescriptionExpanded((prev) => !prev)}
-            style={styles.readMoreBtn}
-          >
-            <Text style={styles.readMoreBtnText}>
-              {isDescriptionExpanded ? 'Show Less' : 'Read More'}
+        {spot.description ? (
+          <View style={styles.sectionContainer}>
+            <Text
+              style={styles.descriptionText}
+              numberOfLines={isDescriptionExpanded ? 0 : 2}
+            >
+              "{spot.description}"
             </Text>
-          </TouchableOpacity>
-        </View>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setIsDescriptionExpanded((prev) => !prev)}
+              style={styles.readMoreBtn}
+            >
+              <Text style={styles.readMoreBtnText}>
+                {isDescriptionExpanded ? 'Show Less' : 'Read More'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* ================================================== */}
         {/* 4. COMPACT SPOT INFORMATION GRID                  */}
@@ -279,23 +389,27 @@ export default function SpotDetailsScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.infoGridCard}>
             <View style={styles.infoGridItem}>
-              <Text style={styles.infoGridLabel}>Elevation</Text>
-              <Text style={styles.infoGridValue}>{spot.elevation || '1,830 m'}</Text>
+              <Text style={styles.infoGridLabel}>Category</Text>
+              <Text style={styles.infoGridValue} numberOfLines={1}>{spot.category || 'Spot'}</Text>
             </View>
             <View style={styles.infoGridDivider} />
             <View style={styles.infoGridItem}>
-              <Text style={styles.infoGridLabel}>Best Time</Text>
-              <Text style={styles.infoGridValue}>{spot.bestTime || 'Oct – Mar'}</Text>
+              <Text style={styles.infoGridLabel}>Latitude</Text>
+              <Text style={styles.infoGridValue}>
+                {spot.latitude ? Number(spot.latitude).toFixed(4) : '10.0889'}
+              </Text>
             </View>
             <View style={styles.infoGridDivider} />
             <View style={styles.infoGridItem}>
-              <Text style={styles.infoGridLabel}>Distance</Text>
-              <Text style={styles.infoGridValue}>{spot.distanceText || '35 km'}</Text>
+              <Text style={styles.infoGridLabel}>Longitude</Text>
+              <Text style={styles.infoGridValue}>
+                {spot.longitude ? Number(spot.longitude).toFixed(4) : '77.0595'}
+              </Text>
             </View>
             <View style={styles.infoGridDivider} />
             <View style={styles.infoGridItem}>
-              <Text style={styles.infoGridLabel}>Nearby Town</Text>
-              <Text style={styles.infoGridValue}>{spot.nearbyTown || 'Suryanelli'}</Text>
+              <Text style={styles.infoGridLabel}>Location</Text>
+              <Text style={styles.infoGridValue} numberOfLines={1}>{spot.location || 'Munnar'}</Text>
             </View>
           </View>
         </View>
@@ -345,10 +459,11 @@ export default function SpotDetailsScreen() {
           <Text style={styles.sectionTitle}>About This Spot</Text>
           <Text
             style={styles.aboutBodyText}
-            numberOfLines={isAboutExpanded ? undefined : 3}
+            numberOfLines={isAboutExpanded ? 0 : 3}
           >
             {spot.aboutDescription ||
-              `${spot.name || spot.title} is known for its panoramic views of the Western Ghats and surrounding tea estates. Perched amidst high altitude ridges, it offers visitors spectacular cloud inversions and vibrant early morning sunrises.`}
+              spot.description ||
+              `${spot.name || spot.title} is a scenic destination situated in ${spot.location || 'Munnar'}.`}
           </Text>
 
           <TouchableOpacity
@@ -365,7 +480,7 @@ export default function SpotDetailsScreen() {
         {/* ================================================== */}
         {/* 7. ROUTES INCLUDING THIS SPOT                     */}
         {/* ================================================== */}
-        {spot.routesContaining && spot.routesContaining.length > 0 && (
+        {routesContaining && routesContaining.length > 0 && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Routes Including This Spot</Text>
@@ -375,7 +490,7 @@ export default function SpotDetailsScreen() {
             </View>
 
             <View style={styles.routesStack}>
-              {spot.routesContaining.map((r) => (
+              {routesContaining.map((r) => (
                 <TouchableOpacity
                   key={r.id}
                   style={styles.routeItemCard}
@@ -404,7 +519,7 @@ export default function SpotDetailsScreen() {
           <View style={styles.mapCard}>
             <Image
               source={{
-                uri: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=800&q=80',
+                uri: spot.image || 'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=800&q=80',
               }}
               style={styles.mapImage}
             />
@@ -417,9 +532,7 @@ export default function SpotDetailsScreen() {
             <TouchableOpacity
               style={styles.openMapBtn}
               activeOpacity={0.85}
-              onPress={() =>
-                Alert.alert('Open Maps', `Opening map directions for ${spot.name || spot.title}`)
-              }
+              onPress={handleGetDirections}
             >
               <Ionicons name="navigate-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.openMapBtnText}>Open in Maps</Text>
@@ -430,17 +543,17 @@ export default function SpotDetailsScreen() {
         {/* ================================================== */}
         {/* 9. NEARBY SPOTS                                   */}
         {/* ================================================== */}
-        {spot.nearbySpotsList && spot.nearbySpotsList.length > 0 && (
+        {nearbySpotsList && nearbySpotsList.length > 0 && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Nearby Spots</Text>
-              <TouchableOpacity activeOpacity={0.7}>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/explore')}>
                 <Text style={styles.seeAllText}>See All ›</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.nearbySpotsList}>
-              {spot.nearbySpotsList.map((nearby) => (
+              {nearbySpotsList.map((nearby) => (
                 <TouchableOpacity
                   key={nearby.id}
                   style={styles.nearbySpotCard}
@@ -459,6 +572,7 @@ export default function SpotDetailsScreen() {
           </View>
         )}
 
+
         {/* ================================================== */}
         {/* 10. VISITOR TIPS                                 */}
         {/* ================================================== */}
@@ -474,95 +588,6 @@ export default function SpotDetailsScreen() {
             </View>
           </View>
         )}
-
-        {/* ================================================== */}
-        {/* 11. EXPERIENCES AT THIS SPOT (PUBLIC MOMENTS FEED) */}
-        {/* 4:5 PORTRAIT FORMAT EXPLORER POSTS                */}
-        {/* ================================================== */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionTitle}>Experiences at This Spot</Text>
-              <Text style={styles.sectionSubtitleText}>Real moments from people who visited.</Text>
-            </View>
-            <TouchableOpacity activeOpacity={0.7}>
-              <Text style={styles.seeAllText}>See All ›</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.momentsFeed}>
-            {explorerMoments.map((moment: JourneyMomentItem) => {
-              const isLiked = likedMomentsMap[moment.id] ?? false;
-              return (
-                <View key={moment.id} style={styles.momentPostCard}>
-                  {/* Moment Post Header */}
-                  <View style={styles.momentPostHeader}>
-                    <Image
-                      source={{ uri: MOCK_JOURNEY_DETAILS.explorer.avatar }}
-                      style={styles.momentAvatar}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.momentAuthorName}>
-                        {MOCK_JOURNEY_DETAILS.explorer.name} ✓
-                      </Text>
-                      <Text style={styles.momentTimeText}>
-                        Visited {moment.exploredTimeText || '12 May 2026'}
-                      </Text>
-                    </View>
-                    <Ionicons name="ellipsis-horizontal" size={18} color="#8A8F9B" />
-                  </View>
-
-                  {/* 4:5 Portrait Media Box */}
-                  {moment.type !== 'note' && moment.mediaUri && (
-                    <View style={styles.portraitAspectBox}>
-                      <Image source={{ uri: moment.mediaUri }} style={styles.momentMediaImage} />
-                      {moment.type === 'video' && (
-                        <View style={styles.videoPlayCircle}>
-                          <Ionicons name="play" size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
-                        </View>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Note Moment Container */}
-                  {moment.type === 'note' && (
-                    <View style={styles.noteBox}>
-                      <Text style={styles.noteText}>"{moment.caption}"</Text>
-                    </View>
-                  )}
-
-                  {/* Caption Quote */}
-                  {moment.type !== 'note' && moment.caption && (
-                    <Text style={styles.momentCaption}>"{moment.caption}"</Text>
-                  )}
-
-                  {/* Engagement Bar */}
-                  <View style={styles.momentFooterRow}>
-                    <TouchableOpacity
-                      style={styles.engagementBtn}
-                      activeOpacity={0.7}
-                      onPress={() => toggleLikeMoment(moment.id)}
-                    >
-                      <Ionicons
-                        name={isLiked ? 'heart' : 'heart-outline'}
-                        size={18}
-                        color={isLiked ? '#FF6B00' : '#8A8F9B'}
-                      />
-                      <Text style={[styles.engagementCount, isLiked && { color: '#FF6B00' }]}>
-                        {(moment.likesCount || 0) + (isLiked ? 1 : 0)}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.engagementBtn} activeOpacity={0.7}>
-                      <Ionicons name="chatbubble-outline" size={17} color="#8A8F9B" />
-                      <Text style={styles.engagementCount}>{moment.commentsCount || 0}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </View>
 
         {/* ================================================== */}
         {/* 12. RELATED STORIES FROM THIS SPOT                 */}
@@ -627,9 +652,7 @@ export default function SpotDetailsScreen() {
         <TouchableOpacity
           style={styles.actionPrimaryBtn}
           activeOpacity={0.88}
-          onPress={() =>
-            Alert.alert('Get Directions', `Opening map navigation to ${spot.name || spot.title}`)
-          }
+          onPress={handleGetDirections}
         >
           <Ionicons name="navigate" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
           <Text style={styles.actionPrimaryText}>Get Directions</Text>
@@ -643,6 +666,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0A0B0E',
+  },
+  centerContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  loadingText: {
+    color: '#8A8F9B',
+    fontSize: 14,
+    marginTop: 12,
+  },
+  errorTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  errorSubText: {
+    color: '#8A8F9B',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  backButton: {
+    backgroundColor: 'rgba(255, 107, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: '#FF6B00',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  backButtonText: {
+    color: '#FF6B00',
+    fontWeight: '700',
+    fontSize: 14,
   },
   scrollContent: {
     paddingBottom: 40,
