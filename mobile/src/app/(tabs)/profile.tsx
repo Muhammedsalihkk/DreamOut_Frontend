@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   SafeAreaView,
@@ -23,6 +23,7 @@ import {
 } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useJourneyStore } from '@/store/useJourneyStore';
 
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileStats } from '@/components/profile/ProfileStats';
@@ -39,6 +40,13 @@ export default function ProfileScreen() {
   const fetchFromBackend = useRouteStore((state) => state.fetchFromBackend);
   const isLoading = useRouteStore((state) => state.isLoading);
   const authUser = useAuthStore((state) => state.user);
+
+  const userJourneys = useJourneyStore((state) => state.userJourneys);
+  const loadUserJourneys = useJourneyStore((state) => state.loadUserJourneys);
+
+  useEffect(() => {
+    loadUserJourneys();
+  }, []);
 
   const createdSpots = storeSpots;
 
@@ -78,13 +86,42 @@ export default function ProfileScreen() {
     }));
   }, [storeRoutes, authUser]);
 
+  const userExperiences: Experience[] = useMemo(() => {
+    if (userJourneys && userJourneys.length > 0) {
+      return userJourneys.map((j) => ({
+        id: String(j.id),
+        title: j.route?.title || `Journey #${j.id}`,
+        location: j.route?.location || 'Munnar, Kerala',
+        image:
+          j.route?.coverImage ||
+          (j.moments?.[0]?.mediaUrl) ||
+          'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
+        date: new Date(j.completedAt || j.createdAt).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        }),
+        placesCount: Array.isArray(j.exploredSpots) ? j.exploredSpots.length : (j.route?.places?.length || 1),
+        duration: j.totalDuration || '2–3 hours',
+        distance: j.route?.distance || '10 km',
+        rating: 4.8,
+        ratingCount: 14,
+        likesCount: 0,
+        commentsCount: 0,
+        status: (j.status === 'COMPLETED' ? 'Completed' : 'Exploring') as any,
+        tags: [j.route?.category || 'Nature', 'Live Journey'],
+      }));
+    }
+    return MOCK_USER_EXPERIENCES;
+  }, [userJourneys]);
+
   const profile = {
     ...MOCK_USER_PROFILE,
     name: authUser?.name || MOCK_USER_PROFILE.name,
     spotCount: createdSpots.length,
     routeCount: createdRoutes.length,
+    experienceCount: userExperiences.length,
   };
-  const userExperiences = MOCK_USER_EXPERIENCES;
 
   const handleRoutePress = (route: Route) => {
     router.push(`/route/${route.id}` as any);
@@ -98,6 +135,10 @@ export default function ProfileScreen() {
     router.push(`/journey/${exp.id || 'j1'}` as any);
   };
 
+  const handleRefresh = async () => {
+    await Promise.allSettled([fetchFromBackend(), loadUserJourneys()]);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -108,7 +149,7 @@ export default function ProfileScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
-            onRefresh={fetchFromBackend}
+            onRefresh={handleRefresh}
             tintColor="#FF6B00"
             colors={['#FF6B00']}
           />

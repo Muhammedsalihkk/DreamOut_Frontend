@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -22,10 +22,13 @@ import * as ImagePicker from 'expo-image-picker';
 
 import {
   MOCK_DETAILED_ROUTE,
-  MOCK_JOURNEY_DETAILS,
+  DetailedRoute,
   RoutePlace,
 } from '@/data/mockData';
 import { CloudinaryService } from '@/services/cloudinary.service';
+import { useJourneyStore } from '@/store/useJourneyStore';
+import { useRouteStore } from '@/store/useRouteStore';
+import { RouteService } from '@/services/route.service';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,20 +38,77 @@ type VisibilityType = 'public' | 'followers' | 'private';
 export default function JourneyModeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, journeyId } = useLocalSearchParams<{ id: string; journeyId?: string }>();
 
-  // Detailed Route data
-  const route = MOCK_DETAILED_ROUTE;
-  const totalPlaces = route.places.length;
+  // Route Data
+  const storeRoute = id ? useRouteStore.getState().getRouteById(id) : null;
+  const [route, setRoute] = useState<DetailedRoute>(storeRoute || MOCK_DETAILED_ROUTE);
+
+  useEffect(() => {
+    if (id && !storeRoute) {
+      RouteService.getRouteById(id)
+        .then((r) => setRoute(r))
+        .catch(() => {});
+    }
+  }, [id]);
+
+  const totalPlaces = route.places?.length || 1;
+
+  // Journey Store
+  const activeJourney = useJourneyStore((state) => state.activeJourney);
+  const loadJourney = useJourneyStore((state) => state.loadJourney);
+  const startOrResumeJourney = useJourneyStore((state) => state.startOrResumeJourney);
+  const updateStepProgress = useJourneyStore((state) => state.updateStepProgress);
+  const captureAndSaveMoment = useJourneyStore((state) => state.captureAndSaveMoment);
+  const completeJourney = useJourneyStore((state) => state.completeJourney);
+  const isSavingMoment = useJourneyStore((state) => state.isSavingMoment);
 
   // Active Exploration State
-  const [currentSpotIndex, setCurrentSpotIndex] = useState(1); // 0-indexed: index 1 is Spot 2 (Attukal Waterfalls)
+  const [currentSpotIndex, setCurrentSpotIndex] = useState(0);
   const [exploredSpotsMap, setExploredSpotsMap] = useState<Record<number, boolean>>({
-    0: true, // Spot 1 explored
-    1: true, // Spot 2 explored
+    0: true,
   });
-  const [momentsCount, setMomentsCount] = useState(4);
+  const [momentsCount, setMomentsCount] = useState(0);
   const [isJourneyComplete, setIsJourneyComplete] = useState(false);
+
+  // Sync / Load active journey session from backend
+  useEffect(() => {
+    if (journeyId) {
+      loadJourney(journeyId)
+        .then((j) => {
+          if (j) {
+            setCurrentSpotIndex(j.currentSpotIndex || 0);
+            const map: Record<number, boolean> = {};
+            (j.exploredSpots || [0]).forEach((idx: number) => {
+              map[idx] = true;
+            });
+            setExploredSpotsMap(map);
+            setMomentsCount(j.moments ? j.moments.length : 0);
+            if (j.status === 'COMPLETED') {
+              setIsJourneyComplete(true);
+            }
+          }
+        })
+        .catch(() => {});
+    } else if (id) {
+      startOrResumeJourney(id)
+        .then((j) => {
+          if (j) {
+            setCurrentSpotIndex(j.currentSpotIndex || 0);
+            const map: Record<number, boolean> = {};
+            (j.exploredSpots || [0]).forEach((idx: number) => {
+              map[idx] = true;
+            });
+            setExploredSpotsMap(map);
+            setMomentsCount(j.moments ? j.moments.length : 0);
+            if (j.status === 'COMPLETED') {
+              setIsJourneyComplete(true);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [id, journeyId]);
 
   // Modals & Flow States
   const [isMapModalVisible, setIsMapModalVisible] = useState(false);
@@ -75,14 +135,12 @@ export default function JourneyModeScreen() {
     if (currentSpotIndex < totalPlaces - 1) {
       const nextIdx = currentSpotIndex + 1;
       setCurrentSpotIndex(nextIdx);
-      setExploredSpotsMap((prev) => ({ ...prev, [nextIdx]: true }));
-
-      // Check if finished
-      if (nextIdx === totalPlaces - 1) {
-        // Will reach last spot
-      }
+      const updatedMap = { ...exploredSpotsMap, [nextIdx]: true };
+      setExploredSpotsMap(updatedMap);
+      updateStepProgress(nextIdx, Object.keys(updatedMap).map(Number));
     } else {
       setIsJourneyComplete(true);
+      completeJourney('Completed');
     }
   };
 
@@ -175,42 +233,32 @@ export default function JourneyModeScreen() {
     }
   };
 
-  const [isSavingMoment, setIsSavingMoment] = useState(false);
-
   const handleSaveMoment = async () => {
-    setIsSavingMoment(true);
-    let finalUrl = capturedMediaUri;
+    try {
+      await captureAndSaveMoment({
+        spotId: String(currentSpot.spotId || currentSpot.id),
+        spotName: currentSpot.name,
+        type: captureType,
+        mediaUri: capturedMediaUri,
+        caption: captionText.trim(),
+        visibility,
+      });
 
-    if (
-      capturedMediaUri &&
-      (capturedMediaUri.startsWith('file:') ||
-        capturedMediaUri.startsWith('blob:') ||
-        capturedMediaUri.startsWith('data:') ||
-        capturedMediaUri.startsWith('content:'))
-    ) {
-      try {
-        const uploadResult = await CloudinaryService.uploadImage(
-          { uri: capturedMediaUri },
-          { folder: 'dreamout/galleries' }
-        );
-        finalUrl = uploadResult.secure_url;
-      } catch (uploadErr) {
-        console.warn('[JourneyMode] Cloudinary upload notice:', uploadErr);
-      }
+      setMomentsCount((prev) => prev + 1);
+      setIsCaptureModalVisible(false);
+      Alert.alert(
+        'Moment Saved! 📸',
+        `Your moment at "${currentSpot.name}" has been recorded and saved to the database.`
+      );
+    } catch (err: any) {
+      Alert.alert('Save Notice', err?.message || 'Moment captured.');
+      setIsCaptureModalVisible(false);
     }
-
-    setMomentsCount((prev) => prev + 1);
-    setIsSavingMoment(false);
-    setIsCaptureModalVisible(false);
-    Alert.alert(
-      'Moment Saved! 📸',
-      `Your moment at "${currentSpot.name}" has been uploaded and added to your journey.`
-    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       {/* ================================================== */}
       {/* 1. HEADER BAR: Back | Route Title | Options Menu  */}
@@ -277,7 +325,12 @@ export default function JourneyModeScreen() {
                   isCurrent && styles.progressDotCurrent,
                 ]}
                 activeOpacity={0.8}
-                onPress={() => setCurrentSpotIndex(idx)}
+                onPress={() => {
+                  setCurrentSpotIndex(idx);
+                  const updatedMap = { ...exploredSpotsMap, [idx]: true };
+                  setExploredSpotsMap(updatedMap);
+                  updateStepProgress(idx, Object.keys(updatedMap).map(Number));
+                }}
               >
                 {isExplored && !isCurrent ? (
                   <Ionicons name="checkmark" size={10} color="#FFFFFF" />
@@ -326,7 +379,7 @@ export default function JourneyModeScreen() {
               </View>
               <View style={styles.compStatDivider} />
               <View style={styles.compStatItem}>
-                <Text style={styles.compStatValue}>5h 20m</Text>
+                <Text style={styles.compStatValue}>{activeJourney?.totalDuration || '3h 15m'}</Text>
                 <Text style={styles.compStatLabel}>Total Duration</Text>
               </View>
             </View>
@@ -334,7 +387,7 @@ export default function JourneyModeScreen() {
             <TouchableOpacity
               style={styles.viewJourneyBtn}
               activeOpacity={0.88}
-              onPress={() => router.push('/journey/j1' as any)}
+              onPress={() => router.push(`/journey/${activeJourney?.id || id}` as any)}
             >
               <Ionicons name="journal-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.viewJourneyBtnText}>View My Journey</Text>

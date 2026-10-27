@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,6 +15,7 @@ import {
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,7 +26,10 @@ import {
   JourneyDetailsData,
   JourneyMomentItem,
   MOCK_DETAILED_ROUTE,
+  DetailedRoute,
 } from '@/data/mockData';
+import { JourneyService, BackendJourney } from '@/services/journey.service';
+import { useRouteStore } from '@/store/useRouteStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,9 +40,65 @@ export default function JourneyDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  // Journey Data
-  const journey: JourneyDetailsData = MOCK_JOURNEY_DETAILS;
-  const route = MOCK_DETAILED_ROUTE;
+  const [backendJourney, setBackendJourney] = useState<BackendJourney | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (id && id !== 'j1') {
+      setIsLoading(true);
+      JourneyService.getJourneyById(id)
+        .then((data) => setBackendJourney(data))
+        .catch((err) => console.warn('[JourneyDetails] Notice:', err))
+        .finally(() => setIsLoading(false));
+    }
+  }, [id]);
+
+  // Fallback Route
+  const storeRoute = backendJourney?.routeId ? useRouteStore.getState().getRouteById(String(backendJourney.routeId)) : null;
+  const route: DetailedRoute = storeRoute || MOCK_DETAILED_ROUTE;
+
+  // Journey Data mapped from backend if available
+  const journey: JourneyDetailsData = useMemo(() => {
+    if (!backendJourney) return MOCK_JOURNEY_DETAILS;
+
+    const mappedMoments: JourneyMomentItem[] = (backendJourney.moments || []).map((m: any, idx: number) => ({
+      id: String(m.id),
+      spotName: m.spotName || `Spot ${idx + 1}`,
+      spotOrder: idx + 1,
+      type: (m.type as any) || 'photo',
+      timeAgo: 'Recently',
+      likesCount: 0,
+      commentsCount: 0,
+      caption: m.caption || '',
+      photos: m.mediaUrl ? [m.mediaUrl] : [],
+      singlePhoto: m.mediaUrl || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+      mediaUrl: m.mediaUrl,
+      noteText: m.type === 'note' ? m.caption || 'Live journey note.' : undefined,
+      location: m.spotName || route.location || 'Munnar, Kerala',
+    }));
+
+    return {
+      id: String(backendJourney.id),
+      routeTitle: backendJourney.route?.title || route.title,
+      routeLocation: backendJourney.route?.location || route.location,
+      totalDistance: route.distance || '12 km',
+      totalDuration: backendJourney.totalDuration || '3h 15m',
+      placesExploredCount: Array.isArray(backendJourney.exploredSpots) ? backendJourney.exploredSpots.length : route.places.length,
+      totalPlacesCount: route.places.length,
+      momentsCapturedCount: mappedMoments.length,
+      coverImage: backendJourney.route?.coverImage || route.coverImage,
+      explorer: {
+        id: String(backendJourney.user?.id || 'u1'),
+        name: backendJourney.user?.name || 'Explorer',
+        username: (backendJourney.user?.name || 'explorer').toLowerCase().replace(/\s+/g, '_'),
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+        followersCount: '1.2K',
+        isVerified: true,
+      },
+      timeAgo: 'Recently',
+      moments: mappedMoments.length > 0 ? mappedMoments : MOCK_JOURNEY_DETAILS.moments,
+    };
+  }, [backendJourney, route]);
 
   // Interactive States
   const [activeTab, setActiveTab] = useState<JourneyTabType>('all');
@@ -102,7 +162,7 @@ export default function JourneyDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       {/* ================================================== */}
       {/* 1. TOP HEADER BAR: Back | Journey Details | Share */}

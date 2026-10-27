@@ -27,6 +27,7 @@ import {
 import { useRouteStore } from '@/store/useRouteStore';
 import { RouteService } from '@/services/route.service';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useJourneyStore } from '@/store/useJourneyStore';
 import { RouteCommentsModal } from '@/components/route/RouteCommentsModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -170,8 +171,24 @@ export default function RouteDetailsScreen() {
     router.push(`/spot/${place.spotId || place.id}` as any);
   };
 
-  const handleStartJourney = () => {
-    router.push(`/journey-mode/${route.id}` as any);
+  const [isStartingJourney, setIsStartingJourney] = useState(false);
+  const startOrResumeJourney = useJourneyStore((state) => state.startOrResumeJourney);
+
+  const handleStartJourney = async () => {
+    if (!route) return;
+    setIsStartingJourney(true);
+    try {
+      const journey = await startOrResumeJourney(route.id);
+      router.push({
+        pathname: `/journey-mode/${route.id}`,
+        params: { journeyId: String(journey.id) },
+      } as any);
+    } catch (err: any) {
+      console.warn('[RouteDetails] Start journey notice:', err);
+      router.push(`/journey-mode/${route.id}` as any);
+    } finally {
+      setIsStartingJourney(false);
+    }
   };
 
   const openPhoto = (url: string, title?: string) => {
