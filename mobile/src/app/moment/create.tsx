@@ -21,6 +21,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 import { useMomentStore, CreatedMoment } from '@/store/useMomentStore';
 import { useRouteStore } from '@/store/useRouteStore';
@@ -219,6 +220,29 @@ export default function CreateMomentScreen() {
     }
   };
 
+  const pickFromFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'video/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setSelectedMediaUri(asset.uri);
+        const isVideo =
+          asset.mimeType?.startsWith('video/') ||
+          asset.name?.toLowerCase().endsWith('.mp4') ||
+          asset.name?.toLowerCase().endsWith('.mov');
+        setMomentType(isVideo ? 'video' : 'photo');
+        setCurrentView('edit');
+      }
+    } catch (err) {
+      console.error('Error picking from files:', err);
+      Alert.alert('File Picker Error', 'Could not open file picker on this device.');
+    }
+  };
+
   // Launch Capture Mode
   const handleStartCapture = async (type: 'photo' | 'video' | 'note') => {
     setMomentType(type);
@@ -316,7 +340,7 @@ export default function CreateMomentScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       {/* ================================================== */}
       {/* 1. SCREEN 1 — SHARE MOMENT OPTIONS                 */}
@@ -411,6 +435,22 @@ export default function CreateMomentScreen() {
               <View style={styles.optionTextCol}>
                 <Text style={styles.secondaryOptionTitle}>🖼️ Choose from Gallery</Text>
                 <Text style={styles.secondaryOptionDesc}>Pick an existing photo or video</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#8A8F9B" />
+            </TouchableOpacity>
+
+            {/* Creation Option 5: Choose from Files */}
+            <TouchableOpacity
+              style={styles.secondaryOptionCard}
+              activeOpacity={0.85}
+              onPress={pickFromFile}
+            >
+              <View style={[styles.secondaryIconCircle, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                <Ionicons name="folder-open-outline" size={24} color="#10B981" />
+              </View>
+              <View style={styles.optionTextCol}>
+                <Text style={styles.secondaryOptionTitle}>📁 Choose from Files</Text>
+                <Text style={styles.secondaryOptionDesc}>Pick an image or video from device storage</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#8A8F9B" />
             </TouchableOpacity>

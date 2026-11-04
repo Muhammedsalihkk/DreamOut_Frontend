@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MOCK_STORIES, Story } from '@/data/mockData';
+import { StoryService } from '@/services/story.service';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface StoriesSectionProps {
   onSeeAllPress?: () => void;
@@ -17,6 +19,20 @@ export const StoriesSection: React.FC<StoriesSectionProps> = ({
   onStoryPress,
 }) => {
   const router = useRouter();
+  const authUser = useAuthStore((state) => state.user);
+  const [stories, setStories] = useState<Story[]>(MOCK_STORIES);
+
+  useEffect(() => {
+    let isMounted = true;
+    StoryService.getStories().then((backendStories) => {
+      if (isMounted && backendStories && backendStories.length > 0) {
+        setStories(backendStories);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleStoryTap = (story: Story) => {
     if (onStoryPress) {
@@ -32,45 +48,48 @@ export const StoriesSection: React.FC<StoriesSectionProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Section Header */}
-   
-
       {/* Horizontal Story Bar */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {MOCK_STORIES.map((story: Story) => (
-          <TouchableOpacity
-            key={story.id}
-            style={styles.storyItem}
-            activeOpacity={0.8}
-            onPress={() => handleStoryTap(story)}
-          >
-            {story.isUserStory ? (
-              <View style={styles.userStoryCircleWrapper}>
-                <Image source={{ uri: story.image }} style={styles.storyAvatar} />
-                <View style={styles.plusBadge}>
-                  <Ionicons name="add" size={12} color="#FFFFFF" />
-                </View>
-              </View>
-            ) : (
-              <LinearGradient
-                colors={['#FF6B00', '#FF8533', '#FF4500']}
-                style={styles.gradientRing}
-              >
-                <View style={styles.innerCircle}>
-                  <Image source={{ uri: story.image }} style={styles.storyAvatar} />
-                </View>
-              </LinearGradient>
-            )}
+        {stories.map((story: Story) => {
+          const isUser = Boolean(story.isUserStory);
+          const imageUri = isUser && authUser?.avatar ? authUser.avatar : story.image;
+          const storyLabel = isUser ? 'Your Story' : story.title;
 
-            <Text style={styles.storyLabel} numberOfLines={1}>
-              {story.title}
-            </Text>
-          </TouchableOpacity>
-        ))}
+          return (
+            <TouchableOpacity
+              key={story.id}
+              style={styles.storyItem}
+              activeOpacity={0.8}
+              onPress={() => handleStoryTap(story)}
+            >
+              {isUser ? (
+                <View style={styles.userStoryCircleWrapper}>
+                  <Image source={{ uri: imageUri }} style={styles.storyAvatar} />
+                  <View style={styles.plusBadge}>
+                    <Ionicons name="add" size={12} color="#FFFFFF" />
+                  </View>
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={['#FF6B00', '#FF8533', '#FF4500']}
+                  style={styles.gradientRing}
+                >
+                  <View style={styles.innerCircle}>
+                    <Image source={{ uri: imageUri }} style={styles.storyAvatar} />
+                  </View>
+                </LinearGradient>
+              )}
+
+              <Text style={styles.storyLabel} numberOfLines={1}>
+                {storyLabel}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );

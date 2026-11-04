@@ -25,6 +25,7 @@ export interface BackendRoute {
     id: number;
     name: string | null;
     email: string;
+    avatar?: string | null;
   };
 }
 
@@ -79,11 +80,12 @@ export class RouteService {
       category: backendRoute.category,
       difficulty: backendRoute.difficulty,
       visibility: backendRoute.visibility as any,
+      userId: backendRoute.userId,
       creator: {
         id: String(backendRoute.user?.id || backendRoute.userId || MOCK_USER_PROFILE.id),
         name: backendRoute.user?.name || MOCK_USER_PROFILE.name,
         username: backendRoute.user?.name ? backendRoute.user.name.toLowerCase().replace(/\s+/g, '_') : MOCK_USER_PROFILE.username,
-        avatar: MOCK_USER_PROFILE.avatar,
+        avatar: backendRoute.user?.avatar || MOCK_USER_PROFILE.avatar,
         isVerified: true,
         routeCount: MOCK_USER_PROFILE.routeCount,
       },

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useRouteStore } from '@/store/useRouteStore';
 import { useMomentStore } from '@/store/useMomentStore';
 import { Route, Spot } from '@/data/mockData';
+import { SavedService } from '@/services/saved.service';
 
 type FilterTab = 'all' | 'routes' | 'spots' | 'moments';
 
@@ -26,10 +27,24 @@ export default function SavedScreen() {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Initial saved IDs (pre-seeded with popular Munnar items)
+  // Initial saved IDs (fetched from backend or seeded defaults)
   const [savedRouteIds, setSavedRouteIds] = useState<string[]>(['r1', 'r2', 'r3']);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>(['spot-1', 'spot-2', 'spot-3']);
   const [savedMomentIds, setSavedMomentIds] = useState<string[]>(['m-1', 'm-2']);
+
+  useEffect(() => {
+    let isMounted = true;
+    SavedService.getUserSaved().then((res) => {
+      if (isMounted) {
+        if (res.savedRouteIds.length > 0) setSavedRouteIds(res.savedRouteIds);
+        if (res.savedSpotIds.length > 0) setSavedSpotIds(res.savedSpotIds);
+        if (res.savedMomentIds.length > 0) setSavedMomentIds(res.savedMomentIds);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Filtered Saved Lists
   const savedRoutes = useMemo(() => {
@@ -45,22 +60,25 @@ export default function SavedScreen() {
   }, [allMoments, savedMomentIds]);
 
   // Unbookmark handlers
-  const handleToggleSaveRoute = (routeId: string) => {
+  const handleToggleSaveRoute = async (routeId: string) => {
     setSavedRouteIds((prev) =>
       prev.includes(routeId) ? prev.filter((id) => id !== routeId) : [...prev, routeId]
     );
+    await SavedService.toggleSaveRoute(routeId);
   };
 
-  const handleToggleSaveSpot = (spotId: string) => {
+  const handleToggleSaveSpot = async (spotId: string) => {
     setSavedSpotIds((prev) =>
       prev.includes(spotId) ? prev.filter((id) => id !== spotId) : [...prev, spotId]
     );
+    await SavedService.toggleSaveSpot(spotId);
   };
 
-  const handleToggleSaveMoment = (momentId: string) => {
+  const handleToggleSaveMoment = async (momentId: string) => {
     setSavedMomentIds((prev) =>
       prev.includes(momentId) ? prev.filter((id) => id !== momentId) : [...prev, momentId]
     );
+    await SavedService.toggleSaveMoment(momentId);
   };
 
   // Filtered items by search query
@@ -94,7 +112,7 @@ export default function SavedScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Screen Header */}

@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { Route } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface RouteSectionProps {
   onSeeAllPress?: () => void;
@@ -16,31 +17,50 @@ export const RouteSection: React.FC<RouteSectionProps> = ({
 }) => {
   const router = useRouter();
   const storeRoutes = useRouteStore((state) => state.routes);
+  const authUser = useAuthStore((state) => state.user);
 
   const displayRoutes: Route[] = useMemo(() => {
-    return storeRoutes.map((r) => ({
-      id: String(r.id),
-      title: r.title,
-      image:
-        r.coverImage ||
-        (r.photos && r.photos[0]) ||
-        'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
-      creator: r.creator || {
-        id: 'u1',
-        name: 'Explorer',
-        username: 'explorer',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-      },
-      description: r.description || r.shortDescription || '',
-      location: r.location,
-      category: r.category,
-      likesCount: r.likesCount || 0,
-      commentsCount: r.commentsCount || 0,
-      completedCount: r.exploredCount || 0,
-      timeAgo: r.postedTimeAgo || 'Recently',
-      imageCount: r.imageCount || (r.photos ? r.photos.length : 1),
-    }));
-  }, [storeRoutes]);
+    return storeRoutes.map((r) => {
+      const isMyRoute = Boolean(
+        authUser &&
+          (String(r.creator?.id) === String(authUser.id) ||
+            String((r as any).userId) === String(authUser.id) ||
+            r.creator?.name === authUser.name)
+      );
+
+      const creator = {
+        id: isMyRoute && authUser?.id ? String(authUser.id) : (r.creator?.id || 'u1'),
+        name: isMyRoute && authUser?.name ? authUser.name : (r.creator?.name || 'Explorer'),
+        username:
+          isMyRoute && authUser?.name
+            ? authUser.name.toLowerCase().replace(/\s+/g, '_')
+            : (r.creator?.username || 'explorer'),
+        avatar:
+          isMyRoute && authUser?.avatar
+            ? authUser.avatar
+            : (r.creator?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'),
+        isVerified: r.creator?.isVerified ?? true,
+      };
+
+      return {
+        id: String(r.id),
+        title: r.title,
+        image:
+          r.coverImage ||
+          (r.photos && r.photos[0]) ||
+          'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
+        creator,
+        description: r.description || r.shortDescription || '',
+        location: r.location,
+        category: r.category,
+        likesCount: r.likesCount || 0,
+        commentsCount: r.commentsCount || 0,
+        completedCount: r.exploredCount || 0,
+        timeAgo: r.postedTimeAgo || 'Recently',
+        imageCount: r.imageCount || (r.photos ? r.photos.length : 1),
+      };
+    });
+  }, [storeRoutes, authUser]);
 
   return (
     <View style={styles.container}>
@@ -91,7 +111,13 @@ export const RouteSection: React.FC<RouteSectionProps> = ({
               <TouchableOpacity
                 style={styles.creatorRow}
                 activeOpacity={0.75}
-                onPress={() => router.push(`/user/${route.creator.id}` as any)}
+                onPress={() => {
+                  if (authUser && (String(authUser.id) === String(route.creator.id) || authUser.name === route.creator.name)) {
+                    router.push('/(tabs)/profile');
+                  } else {
+                    router.push(`/user/${route.creator.id}` as any);
+                  }
+                }}
               >
                 <Image source={{ uri: route.creator.avatar }} style={styles.creatorAvatar} />
                 <Text style={styles.creatorName} numberOfLines={1}>
@@ -132,6 +158,7 @@ export const RouteSection: React.FC<RouteSectionProps> = ({
           </TouchableOpacity>
         ))}
       </ScrollView>
+      )}
     </View>
   );
 };

@@ -17,27 +17,35 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { LoginInput } from '@/components/login/LoginInput';
 import { TopographicBackground } from '@/components/login/TopographicBackground';
+import { AuthService } from '@/services/auth.service';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (!email.trim()) {
       Alert.alert('Email Required', 'Please enter your email address.');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const res = await AuthService.forgotPassword(email.trim());
       Alert.alert(
         'Check Your Inbox',
-        `A password reset link has been sent to ${email}.`,
+        res.message || `A password reset link has been sent to ${email}.`,
         [{ text: 'Back to Sign In', onPress: () => router.replace('/login') }]
       );
-    }, 600);
+    } catch (err: any) {
+      Alert.alert(
+        'Request Failed',
+        err.message || 'Unable to process reset request. Please try again later.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

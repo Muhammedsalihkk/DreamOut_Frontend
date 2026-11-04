@@ -9,11 +9,12 @@ export interface AuthState {
   error: string | null;
   login: (payload: LoginPayload) => Promise<boolean>;
   register: (payload: RegisterPayload) => Promise<boolean>;
+  updateUserAvatar: (avatarUrl: string) => Promise<boolean>;
   logout: () => void;
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isAuthenticated: false,
@@ -58,6 +59,26 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
         error: err.message || 'An unexpected error occurred during registration.',
       });
+      return false;
+    }
+  },
+
+  updateUserAvatar: async (avatarUrl: string): Promise<boolean> => {
+    const currentUser = get().user;
+    if (!currentUser) return false;
+
+    set({
+      user: {
+        ...currentUser,
+        avatar: avatarUrl,
+      },
+    });
+
+    try {
+      await AuthService.updateUser(currentUser.id, { avatar: avatarUrl });
+      return true;
+    } catch (err) {
+      console.warn('[useAuthStore] Failed to update avatar in backend:', err);
       return false;
     }
   },

@@ -13,6 +13,7 @@ import {
   TextInput,
   Platform,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';

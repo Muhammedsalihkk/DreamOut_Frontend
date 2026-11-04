@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { MOCK_SPOTS, Spot } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface SpotSectionProps {
   onSeeAllPress?: () => void;
@@ -16,6 +17,7 @@ export const SpotSection: React.FC<SpotSectionProps> = ({
 }) => {
   const router = useRouter();
   const storeSpots = useRouteStore((state) => state.spots);
+  const authUser = useAuthStore((state) => state.user);
 
   const displaySpots = useMemo(() => {
     return storeSpots || [];
@@ -83,18 +85,35 @@ export const SpotSection: React.FC<SpotSectionProps> = ({
                 </Text>
               </View>
 
-              {spot.creator && (
-                <TouchableOpacity
-                  style={styles.creatorRow}
-                  activeOpacity={0.75}
-                  onPress={() => router.push(`/user/${spot.creator!.id}` as any)}
-                >
-                  <Image source={{ uri: spot.creator.avatar }} style={styles.creatorAvatar} />
-                  <Text style={styles.creatorText} numberOfLines={1}>
-                    Added by <Text style={{ color: '#E0E4EB', fontWeight: '600' }}>{spot.creator.name}</Text>
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {spot.creator && (() => {
+                const isMySpot = Boolean(
+                  authUser &&
+                    (String(spot.creator?.id) === String(authUser.id) ||
+                      String((spot as any).userId) === String(authUser.id) ||
+                      spot.creator?.name === authUser.name)
+                );
+                const avatar = isMySpot && authUser?.avatar ? authUser.avatar : spot.creator.avatar;
+                const name = isMySpot && authUser?.name ? authUser.name : spot.creator.name;
+
+                return (
+                  <TouchableOpacity
+                    style={styles.creatorRow}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      if (isMySpot) {
+                        router.push('/(tabs)/profile');
+                      } else {
+                        router.push(`/user/${spot.creator!.id}` as any);
+                      }
+                    }}
+                  >
+                    <Image source={{ uri: avatar }} style={styles.creatorAvatar} />
+                    <Text style={styles.creatorText} numberOfLines={1}>
+                      Added by <Text style={{ color: '#E0E4EB', fontWeight: '600' }}>{name}</Text>
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
           </TouchableOpacity>
         ))}

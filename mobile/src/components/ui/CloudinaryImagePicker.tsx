@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import {
   CloudinaryService,
   CloudinaryFolder,
@@ -123,6 +124,31 @@ export const CloudinaryImagePicker: React.FC<CloudinaryImagePickerProps> = ({
     } catch (err: any) {
       console.error('[CloudinaryImagePicker] Error capturing photo:', err);
       setLocalError(err?.message || 'Failed to capture photo.');
+    }
+  };
+
+  const handlePickFromDocument = async () => {
+    setIsOptionsModalVisible(false);
+    setLocalError(null);
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        await performUpload({
+          uri: asset.uri,
+          mimeType: asset.mimeType || 'image/jpeg',
+          fileName: asset.name || `file_${Date.now()}.jpg`,
+          fileSize: asset.size,
+        });
+      }
+    } catch (err: any) {
+      console.error('[CloudinaryImagePicker] Error selecting file:', err);
+      setLocalError(err?.message || 'Failed to select image from files.');
     }
   };
 
@@ -308,6 +334,21 @@ export const CloudinaryImagePicker: React.FC<CloudinaryImagePickerProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={styles.optionRow}
+              activeOpacity={0.7}
+              onPress={handlePickFromDocument}
+            >
+              <View style={[styles.optionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                <Ionicons name="folder-open" size={22} color="#10B981" />
+              </View>
+              <View style={styles.optionInfo}>
+                <Text style={styles.optionTitle}>Choose from Files</Text>
+                <Text style={styles.optionDesc}>Select from device files & documents</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.cancelButton}
               activeOpacity={0.7}
               onPress={() => setIsOptionsModalVisible(false)}
@@ -385,7 +426,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   uploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(10, 11, 14, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',

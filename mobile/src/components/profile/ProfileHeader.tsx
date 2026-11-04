@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserProfile } from '@/data/mockData';
 import { useRouter } from 'expo-router';
@@ -34,11 +35,21 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const insets = useSafeAreaInsets();
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
+  const updateUserAvatar = useAuthStore((state) => state.updateUserAvatar);
 
   const displayName = user?.name || profile.name;
-  const [avatarUrl, setAvatarUrl] = useState(profile.avatar);
+  const exactProfileImage = user?.avatar || profile.avatar;
+  const [avatarUrl, setAvatarUrl] = useState(exactProfileImage);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isAvatarModalVisible, setIsAvatarModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (user?.avatar) {
+      setAvatarUrl(user.avatar);
+    } else if (profile.avatar) {
+      setAvatarUrl(profile.avatar);
+    }
+  }, [user?.avatar, profile.avatar]);
 
   const handleEditProfile = () => {
     Alert.alert('Edit Profile', 'Open edit profile screen.');
@@ -79,12 +90,15 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
       setAvatarUrl(result.secure_url);
 
+      // Persist to Neon DB backend & update Zustand user auth state
+      await updateUserAvatar(result.secure_url);
+
       // Securely delete previous Cloudinary asset via backend if it was replaced
       if (oldAvatar && oldAvatar.includes('cloudinary.com')) {
         CloudinaryService.requestAssetDeletion(oldAvatar).catch(() => {});
       }
 
-      Alert.alert('Success', 'Profile photo updated successfully on Cloudinary!');
+      Alert.alert('Success', 'Profile photo updated successfully!');
     } catch (err: any) {
       console.error('[ProfileHeader] Avatar upload failed:', err);
       Alert.alert('Upload Failed', err?.message || 'Could not upload avatar image.');
@@ -111,7 +125,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        await uploadSelectedAvatar(asset.uri, asset.mimeType, asset.fileName);
+        await uploadSelectedAvatar(asset.uri, asset.mimeType || undefined, asset.fileName || undefined);
       }
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to open camera.');
@@ -136,10 +150,27 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        await uploadSelectedAvatar(asset.uri, asset.mimeType, asset.fileName);
+        await uploadSelectedAvatar(asset.uri, asset.mimeType || undefined, asset.fileName || undefined);
       }
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to open photo library.');
+    }
+  };
+
+  const handlePickFromDocument = async () => {
+    setIsAvatarModalVisible(false);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        await uploadSelectedAvatar(asset.uri, asset.mimeType, asset.name);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to select image from files.');
     }
   };
 
@@ -311,6 +342,21 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={styles.modalOption}
+              activeOpacity={0.7}
+              onPress={handlePickFromDocument}
+            >
+              <View style={[styles.modalOptionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                <Ionicons name="folder-open" size={20} color="#10B981" />
+              </View>
+              <View style={styles.modalOptionTexts}>
+                <Text style={styles.modalOptionTitle}>Choose from Files</Text>
+                <Text style={styles.modalOptionDesc}>Select from device files</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.modalCancelBtn}
               activeOpacity={0.7}
               onPress={() => setIsAvatarModalVisible(false)}
@@ -476,7 +522,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   avatarLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(10, 11, 15, 0.75)',
     borderRadius: 40,
     justifyContent: 'center',

@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { MOCK_USER_PROFILE } from '@/data/mockData';
+import { CommentService } from '@/services/comment.service';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export interface CommentUser {
   id: string;
@@ -38,6 +40,7 @@ export interface CommentItem {
 interface RouteCommentsModalProps {
   visible: boolean;
   routeTitle: string;
+  routeId?: string | number;
   initialCommentsCount?: number;
   onClose: () => void;
   onCommentsCountChange?: (newCount: number) => void;
@@ -140,12 +143,13 @@ const INITIAL_ROUTE_COMMENTS: CommentItem[] = [
 export const RouteCommentsModal: React.FC<RouteCommentsModalProps> = ({
   visible,
   routeTitle,
+  routeId,
   initialCommentsCount = 36,
   onClose,
   onCommentsCountChange,
 }) => {
-  const inputRef = useRef<TextInput>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const inputRef = useRef<any>(null);
+  const scrollViewRef = useRef<any>(null);
 
   // Comments State
   const [comments, setComments] = useState<CommentItem[]>(INITIAL_ROUTE_COMMENTS);
@@ -169,20 +173,31 @@ export const RouteCommentsModal: React.FC<RouteCommentsModalProps> = ({
   const [hasMoreComments, setHasMoreComments] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Reset and simulate loading state on open
+  // Fetch real comments on open when routeId is available
   useEffect(() => {
     if (visible) {
       setIsLoading(true);
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 500);
-      return () => clearTimeout(timer);
+      if (routeId) {
+        CommentService.getRouteComments(routeId)
+          .then((backendComments) => {
+            if (backendComments && backendComments.length > 0) {
+              setComments(backendComments);
+            }
+          })
+          .catch(() => {})
+          .finally(() => setIsLoading(false));
+      } else {
+        const timer = setTimeout(() => {
+          setIsLoading(false);
+        }, 400);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [visible]);
+  }, [visible, routeId]);
 
   // Total comment count calculation (main comments + replies)
   const totalCommentsCount = useMemo(() => {
-    return comments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0) + 30; // + offset to match 36
+    return comments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0);
   }, [comments]);
 
   useEffect(() => {
@@ -221,6 +236,7 @@ export const RouteCommentsModal: React.FC<RouteCommentsModalProps> = ({
         return c;
       })
     );
+    CommentService.likeComment(commentId).catch(() => {});
   };
 
   // Trigger Reply Context
@@ -262,6 +278,7 @@ export const RouteCommentsModal: React.FC<RouteCommentsModalProps> = ({
       }
     });
     setSelectedCommentForMenu(null);
+    CommentService.deleteComment(commentId).catch(() => {});
   };
 
   // Submit Comment / Reply / Edit
@@ -269,6 +286,14 @@ export const RouteCommentsModal: React.FC<RouteCommentsModalProps> = ({
     if (!inputText.trim()) return;
 
     const trimmed = inputText.trim();
+    const authUser = useAuthStore.getState().user;
+    const currentUserProfile = {
+      id: String(authUser?.id || MOCK_USER_PROFILE.id),
+      name: authUser?.name || MOCK_USER_PROFILE.name,
+      username: authUser?.name ? authUser.name.toLowerCase().replace(/\s+/g, '_') : MOCK_USER_PROFILE.username,
+      avatar: authUser?.avatar || MOCK_USER_PROFILE.avatar,
+      isCurrentUser: true,
+    };
 
     if (editingComment) {
       // Handle Edit Comment
@@ -292,13 +317,7 @@ export const RouteCommentsModal: React.FC<RouteCommentsModalProps> = ({
       // Handle Reply to Comment
       const newReply: CommentItem = {
         id: `reply-${Date.now()}`,
-        user: {
-          id: MOCK_USER_PROFILE.id,
-          name: MOCK_USER_PROFILE.name,
-          username: MOCK_USER_PROFILE.username,
-          avatar: MOCK_USER_PROFILE.avatar,
-          isCurrentUser: true,
-        },
+        user: currentUserProfile,
         text: trimmed,
         timeAgo: 'Just now',
         likesCount: 0,
@@ -316,18 +335,21 @@ export const RouteCommentsModal: React.FC<RouteCommentsModalProps> = ({
           return c;
         })
       );
+
+      if (routeId) {
+        CommentService.createComment({
+          text: trimmed,
+          routeId,
+          parentId: replyingToComment.id,
+        }).catch((err) => console.warn('[RouteCommentsModal] Error posting reply:', err));
+      }
+
       setReplyingToComment(null);
     } else {
       // Handle New Main Comment
       const newComment: CommentItem = {
         id: `comment-${Date.now()}`,
-        user: {
-          id: MOCK_USER_PROFILE.id,
-          name: MOCK_USER_PROFILE.name,
-          username: MOCK_USER_PROFILE.username,
-          avatar: MOCK_USER_PROFILE.avatar,
-          isCurrentUser: true,
-        },
+        user: currentUserProfile,
         text: trimmed,
         timeAgo: 'Just now',
         likesCount: 0,
@@ -336,6 +358,13 @@ export const RouteCommentsModal: React.FC<RouteCommentsModalProps> = ({
       };
 
       setComments((prev) => [newComment, ...prev]);
+
+      if (routeId) {
+        CommentService.createComment({
+          text: trimmed,
+          routeId,
+        }).catch((err) => console.warn('[RouteCommentsModal] Error posting comment:', err));
+      }
     }
 
     setInputText('');

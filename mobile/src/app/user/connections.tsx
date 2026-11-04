@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   SafeAreaView,
@@ -21,6 +21,7 @@ import {
   MOCK_USER_PROFILE,
   MOCK_OTHER_USER_PROFILE,
 } from '@/data/mockData';
+import { ConnectionService } from '@/services/connection.service';
 import { ConnectionUserCard } from '@/components/profile/ConnectionUserCard';
 import { ProfileEmptyState } from '@/components/profile/ProfileEmptyState';
 
@@ -57,7 +58,7 @@ export default function UserConnectionsScreen() {
   );
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Initial data from mockData
+  // Initial data from mockData / backend
   const initialConnections = useMemo(() => getUserConnections(userId), [userId]);
 
   const [followersList, setFollowersList] = useState<ConnectionUser[]>(
@@ -79,12 +80,45 @@ export default function UserConnectionsScreen() {
     return map;
   });
 
+  // Fetch real followers and following from backend
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      ConnectionService.getFollowers(userId),
+      ConnectionService.getFollowing(userId),
+    ]).then(([backendFollowers, backendFollowing]) => {
+      if (isMounted) {
+        if (backendFollowers && backendFollowers.length > 0) {
+          setFollowersList(backendFollowers);
+        }
+        if (backendFollowing && backendFollowing.length > 0) {
+          setFollowingList(backendFollowing);
+        }
+        setFollowingMap((prev) => {
+          const map = { ...prev };
+          (backendFollowers || []).forEach((u) => {
+            if (u.isFollowing !== undefined) map[u.id] = !!u.isFollowing;
+          });
+          (backendFollowing || []).forEach((u) => {
+            map[u.id] = true;
+          });
+          return map;
+        });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
+
   const handleToggleFollow = (targetUserId: string) => {
     setFollowingMap((prev) => {
       const currentState = !!prev[targetUserId];
       const newState = !currentState;
       return { ...prev, [targetUserId]: newState };
     });
+    ConnectionService.toggleFollow(targetUserId).catch(() => {});
   };
 
   const handleRemoveFollower = (targetUserId: string) => {
@@ -132,7 +166,7 @@ export default function UserConnectionsScreen() {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       {/* 1. Header Bar */}
       <View style={[styles.headerBar, { paddingTop: Platform.OS === 'android' ? Math.max(insets.top, 12) : 6 }]}>

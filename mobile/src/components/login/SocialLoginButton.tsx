@@ -42,9 +42,9 @@ export const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({
     <TouchableOpacity
       style={styles.button}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.75}
     >
-      <Ionicons name={config.iconName} size={20} color={config.color} />
+      <Ionicons name={config.iconName} size={19} color={config.color} />
       <Text style={styles.label}>{config.label}</Text>
     </TouchableOpacity>
   );
@@ -56,17 +56,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 13,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.11)',
     height: 46,
     marginHorizontal: 4,
-    gap: 8,
+    gap: 7,
   },
   label: {
-    color: '#E0E4EB',
-    fontSize: 13,
+    color: '#E2E8F0',
+    fontSize: 12.5,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -19,6 +19,7 @@ import {
   NotificationFilterType,
   NotificationMomentData,
 } from '@/data/mockData';
+import { NotificationService } from '@/services/notification.service';
 import { NotificationItemRow } from '@/components/notifications/NotificationItemRow';
 import { MomentDetailModal } from '@/components/notifications/MomentDetailModal';
 
@@ -30,6 +31,18 @@ export default function NotificationsScreen() {
   const [activeFilter, setActiveFilter] = useState<NotificationFilterType>('All');
   const [selectedMoment, setSelectedMoment] = useState<NotificationMomentData | undefined>(undefined);
   const [momentModalVisible, setMomentModalVisible] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    NotificationService.getNotifications(activeFilter).then((items) => {
+      if (isMounted && items && items.length > 0) {
+        setNotifications(items);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [activeFilter]);
 
   // Filter notifications based on active pill
   const filteredNotifications = notifications.filter((item) => {
@@ -54,10 +67,11 @@ export default function NotificationsScreen() {
   const dateGroupKeys = Object.keys(groupedNotifications);
 
   const handleNotificationPress = (item: NotificationItem) => {
-    // Mark as read
+    // Mark as read in local state and backend
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, isUnread: false } : n))
     );
+    NotificationService.markAsRead(item.id);
 
     // Contextual actions
     if (item.type === 'like' || item.type === 'comment') {
@@ -119,7 +133,7 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       {/* Screen Header */}
       <View style={styles.header}>

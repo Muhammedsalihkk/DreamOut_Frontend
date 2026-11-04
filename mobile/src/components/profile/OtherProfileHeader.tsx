@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,6 +14,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserProfile } from '@/data/mockData';
 import { useRouter } from 'expo-router';
+import { ConnectionService } from '@/services/connection.service';
 
 interface OtherProfileHeaderProps {
   profile: UserProfile;
@@ -25,6 +26,20 @@ export const OtherProfileHeader: React.FC<OtherProfileHeaderProps> = ({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isFollowing, setIsFollowing] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (profile?.id) {
+      ConnectionService.getStats(profile.id).then((stats) => {
+        if (isMounted && typeof stats.isFollowing === 'boolean') {
+          setIsFollowing(stats.isFollowing);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [profile?.id]);
 
   const handleBackPress = () => {
     if (router.canGoBack()) {
@@ -44,12 +59,16 @@ export const OtherProfileHeader: React.FC<OtherProfileHeaderProps> = ({
           {
             text: 'Unfollow',
             style: 'destructive',
-            onPress: () => setIsFollowing(false),
+            onPress: () => {
+              setIsFollowing(false);
+              ConnectionService.toggleFollow(profile.id).catch(() => {});
+            },
           },
         ]
       );
     } else {
       setIsFollowing(true);
+      ConnectionService.toggleFollow(profile.id).catch(() => {});
     }
   };
 

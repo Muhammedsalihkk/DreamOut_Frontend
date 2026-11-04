@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
@@ -11,8 +10,9 @@ import {
   Text,
   TouchableOpacity,
   View,
-  StatusBar,
+  StatusBar as RNStatusBar,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LoginInput } from './LoginInput';
@@ -88,8 +88,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-
-
   const handleSocialLogin = (provider: SocialProvider) => {
     if (onLoginSuccess) {
       onLoginSuccess(provider);
@@ -110,33 +108,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar style="light" />
 
-      {/* Full Screen Background Mountain Image */}
+      {/* Cinematic Adventure Wallpaper */}
       <ImageBackground
         source={require('@/assets/images/login-background.jpg')}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       >
-        {/* Layered Gradient Overlays for Contrast (pointerEvents="none") */}
+        {/* Layered Gradient: Preserves Mountain Visibility while Maximizing Text Legibility */}
         <LinearGradient
           colors={[
-            'rgba(10, 11, 15, 0.65)',
-            'rgba(10, 11, 15, 0.35)',
-            'rgba(10, 11, 15, 0.80)',
-            'rgba(8, 9, 12, 0.96)',
+            'rgba(8, 10, 15, 0.50)',
+            'rgba(8, 10, 15, 0.18)',
+            'rgba(8, 10, 15, 0.68)',
+            'rgba(6, 7, 11, 0.96)',
           ]}
-          locations={[0, 0.35, 0.68, 1]}
+          locations={[0, 0.28, 0.62, 1]}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
 
-        {/* Subtle Map Topographic Contour Decoration */}
+        {/* Ambient Topographic Contours */}
         <TopographicBackground />
 
         <SafeAreaView style={styles.safeArea}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.keyboardView}
           >
             <ScrollView
@@ -145,131 +143,155 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               keyboardShouldPersistTaps="handled"
               bounces={false}
             >
-              {/* TOP BRANDING & HEADLINE SECTION */}
-              <View style={styles.headerSection}>
-                {/* Logo & Tagline */}
-                <View style={styles.logoRow}>
-                  <Text style={styles.logoText}>
-                    Dream<Text style={styles.logoAccent}>Out</Text>
+              {/* TOP BRANDING & HEADLINE */}
+              <View style={styles.headerWrapper}>
+                <View style={styles.headerSection}>
+                  {/* Brand Row with Pill & Badge */}
+                  <View style={styles.logoRow}>
+                    <View style={styles.brandPill}>
+                      <Ionicons name="compass" size={18} color="#FF6B00" style={styles.brandIcon} />
+                      <Text style={styles.logoText}>
+                        Dream<Text style={styles.logoAccent}>Out</Text>
+                      </Text>
+                    </View>
+                    <View style={styles.badge}>
+                      <View style={styles.badgeDot} />
+                      <Text style={styles.badgeText}>EXPLORE BEYOND</Text>
+                    </View>
+                  </View>
+
+                  {/* Hero Title */}
+                  <Text style={styles.titleText}>
+                    Discover Your Next{'\n'}
+                    <Text style={styles.titleAccent}>Adventure</Text>
                   </Text>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>EXPLORE BEYOND</Text>
+
+                  {/* Subtitle */}
+                  <Text style={styles.subtitle}>
+                    Curated routes, live waypoints & memorable journeys.
+                  </Text>
+
+                  {/* Subtle Accent Glow Indicator */}
+                  <View style={styles.accentLineContainer}>
+                    <View style={styles.accentLine} />
+                    <View style={styles.accentDot} />
                   </View>
                 </View>
-
-                {/* Streamlined Hero Title */}
-                <Text style={styles.titleText}>
-                  Discover <Text style={styles.titleAccent}>Amazing</Text> Places
-                </Text>
-
-                {/* Subtitle */}
-                <Text style={styles.subtitle}>
-                  Plan. Explore. Make every journey count.
-                </Text>
-
-                {/* Accent Line */}
-                <View style={styles.accentLine} />
               </View>
 
               {/* TRANSLUCENT GLASS LOGIN CARD */}
-              <View style={styles.loginCard}>
-                <Text style={styles.cardTitle}>Welcome Back</Text>
-                <Text style={styles.cardSubtitle}>
-                  Sign in to continue your journey
-                </Text>
-
-                {/* Inputs */}
-                <LoginInput
-                  placeholder="Email address"
-                  iconName="mail-outline"
-                  value={email}
-                  onChangeText={handleEmailChange}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  error={emailError}
-                />
-
-                <LoginInput
-                  placeholder="Password"
-                  iconName="lock-closed-outline"
-                  isPassword
-                  value={password}
-                  onChangeText={handlePasswordChange}
-                  error={passwordError}
-                />
-
-                {/* Server Error Banner */}
-                {serverError ? (
-                  <View style={styles.serverErrorBanner}>
-                    <Ionicons name="alert-circle" size={16} color="#EF4444" style={styles.serverErrorIcon} />
-                    <Text style={styles.serverErrorText}>{serverError}</Text>
+              <View style={styles.cardWrapper}>
+                <View style={styles.loginCard}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>Welcome Back</Text>
+                    <Text style={styles.cardSubtitle}>
+                      Sign in to continue your journey
+                    </Text>
                   </View>
-                ) : null}
 
-                {/* Forgot Password */}
-                <TouchableOpacity
-                  style={styles.forgotPasswordContainer}
-                  onPress={handleForgotPasswordPress}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-                </TouchableOpacity>
-
-
-                {/* Sign In Button */}
-                <TouchableOpacity
-                  style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
-                  onPress={handleSignIn}
-                  activeOpacity={0.85}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Text style={styles.signInButtonText}>Sign In</Text>
-                      <Ionicons
-                        name="arrow-forward"
-                        size={18}
-                        color="#FFFFFF"
-                        style={styles.buttonIcon}
-                      />
-                    </>
-                  )}
-                </TouchableOpacity>
-
-
-                {/* Social Login Divider */}
-                <View style={styles.dividerContainer}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or continue with</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                {/* Social Buttons */}
-                <View style={styles.socialRow}>
-                  <SocialLoginButton
-                    provider="google"
-                    onPress={() => handleSocialLogin('google')}
+                  {/* Inputs */}
+                  <LoginInput
+                    placeholder="Email address"
+                    iconName="mail-outline"
+                    value={email}
+                    onChangeText={handleEmailChange}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    error={emailError}
                   />
-                  <SocialLoginButton
-                    provider="apple"
-                    onPress={() => handleSocialLogin('apple')}
-                  />
-                  <SocialLoginButton
-                    provider="facebook"
-                    onPress={() => handleSocialLogin('facebook')}
-                  />
-                </View>
 
-                {/* Sign Up Link */}
-                <View style={styles.signUpContainer}>
-                  <Text style={styles.signUpText}>
-                    Don't have an account?{' '}
-                  </Text>
-                  <TouchableOpacity onPress={handleSignUpPress} activeOpacity={0.7}>
-                    <Text style={styles.signUpLinkText}>Sign Up</Text>
+                  <LoginInput
+                    placeholder="Password"
+                    iconName="lock-closed-outline"
+                    isPassword
+                    value={password}
+                    onChangeText={handlePasswordChange}
+                    error={passwordError}
+                  />
+
+                  {/* Server Error Banner */}
+                  {serverError ? (
+                    <View style={styles.serverErrorBanner}>
+                      <Ionicons name="alert-circle" size={17} color="#EF4444" style={styles.serverErrorIcon} />
+                      <Text style={styles.serverErrorText}>{serverError}</Text>
+                    </View>
+                  ) : null}
+
+                  {/* Forgot Password */}
+                  <TouchableOpacity
+                    style={styles.forgotPasswordContainer}
+                    onPress={handleForgotPasswordPress}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+                  >
+                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                   </TouchableOpacity>
+
+                  {/* Sign In CTA with Vibrant Sunset Orange Gradient */}
+                  <TouchableOpacity
+                    style={[styles.signInButton, isLoading && { opacity: 0.7 }]}
+                    onPress={handleSignIn}
+                    activeOpacity={0.88}
+                    disabled={isLoading}
+                  >
+                    <LinearGradient
+                      colors={['#FF7A1A', '#FF5500']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.signInGradient}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Text style={styles.signInButtonText}>Sign In</Text>
+                          <Ionicons
+                            name="arrow-forward"
+                            size={18}
+                            color="#FFFFFF"
+                            style={styles.buttonIcon}
+                          />
+                        </>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  {/* Social Login Divider */}
+                  <View style={styles.dividerContainer}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>or continue with</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
+                  {/* Social Buttons */}
+                  <View style={styles.socialRow}>
+                    <SocialLoginButton
+                      provider="google"
+                      onPress={() => handleSocialLogin('google')}
+                    />
+                    <SocialLoginButton
+                      provider="apple"
+                      onPress={() => handleSocialLogin('apple')}
+                    />
+                    <SocialLoginButton
+                      provider="facebook"
+                      onPress={() => handleSocialLogin('facebook')}
+                    />
+                  </View>
+
+                  {/* Sign Up Link */}
+                  <View style={styles.signUpContainer}>
+                    <Text style={styles.signUpText}>
+                      Don't have an account?{' '}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={handleSignUpPress}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.signUpLinkText}>Sign Up</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </ScrollView>
@@ -283,7 +305,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0B0E',
+    backgroundColor: '#08090D',
   },
   safeArea: {
     flex: 1,
@@ -294,106 +316,154 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 6 : 6,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 24) + 8 : 10,
+    paddingBottom: 20,
   },
 
   /* HEADER BRANDING */
+  headerWrapper: {
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+  },
   headerSection: {
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: 6,
+    marginBottom: 10,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  brandPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  brandIcon: {
+    marginRight: 6,
   },
   logoText: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   logoAccent: {
     color: '#FF6B00',
   },
   badge: {
-    backgroundColor: 'rgba(255, 107, 0, 0.18)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 0, 0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 0, 0.35)',
+    borderColor: 'rgba(255, 107, 0, 0.32)',
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FF6B00',
+    marginRight: 6,
   },
   badgeText: {
-    color: '#FF6B00',
-    fontSize: 9,
+    color: '#FF8822',
+    fontSize: 9.5,
     fontWeight: '700',
     letterSpacing: 1.1,
   },
   titleText: {
-    fontSize: 28,
+    fontSize: 29,
     fontWeight: '800',
     color: '#FFFFFF',
-    lineHeight: 34,
+    lineHeight: 36,
     letterSpacing: -0.6,
   },
   titleAccent: {
-    color: '#FF6B00',
+    color: '#FF7A1A',
   },
   subtitle: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    marginTop: 4,
+    fontSize: 13.5,
+    color: '#A0A6B5',
+    marginTop: 6,
     fontWeight: '400',
+    lineHeight: 18,
+  },
+  accentLineContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 4,
   },
   accentLine: {
-    width: 32,
+    width: 28,
     height: 3,
     backgroundColor: '#FF6B00',
     borderRadius: 2,
-    marginTop: 8,
+  },
+  accentDot: {
+    width: 5,
+    height: 3,
+    backgroundColor: 'rgba(255, 107, 0, 0.5)',
+    borderRadius: 1.5,
   },
 
   /* LOGIN CARD */
+  cardWrapper: {
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+  },
   loginCard: {
-    backgroundColor: 'rgba(18, 20, 26, 0.84)',
-    borderRadius: 22,
+    backgroundColor: 'rgba(15, 18, 26, 0.86)',
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
+    borderColor: 'rgba(255, 255, 255, 0.11)',
+    borderTopColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 20,
+    paddingVertical: 22,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 10,
     marginVertical: 4,
   },
+  cardHeader: {
+    marginBottom: 14,
+  },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 2,
+    letterSpacing: -0.3,
   },
   cardSubtitle: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 12,
+    fontSize: 12.5,
+    color: '#94A3B8',
+    marginTop: 3,
   },
 
   /* FORGOT PASSWORD */
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
-    marginTop: 2,
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 14,
     paddingVertical: 2,
   },
   forgotPasswordText: {
-    color: '#FF6B00',
-    fontSize: 12,
+    color: '#FF7A1A',
+    fontSize: 12.5,
     fontWeight: '600',
   },
 
@@ -401,10 +471,10 @@ const styles = StyleSheet.create({
   serverErrorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: 'rgba(239, 68, 68, 0.14)',
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.35)',
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginVertical: 6,
@@ -413,59 +483,63 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   serverErrorText: {
-    color: '#EF4444',
+    color: '#F87171',
     fontSize: 12.5,
     fontWeight: '600',
     flex: 1,
   },
 
   /* SIGN IN BUTTON */
-
   signInButton: {
-    backgroundColor: '#FF6B00',
-    height: 48,
-    borderRadius: 13,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.38,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  signInGradient: {
+    height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF6B00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 4,
+    paddingHorizontal: 16,
   },
   signInButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   buttonIcon: {
-    marginLeft: 6,
+    marginLeft: 7,
   },
 
   /* DIVIDER */
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 16,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
   },
   dividerText: {
-    color: '#8A8F9B',
-    fontSize: 11,
-    marginHorizontal: 10,
+    color: '#8A92A6',
+    fontSize: 11.5,
+    marginHorizontal: 12,
     fontWeight: '500',
+    letterSpacing: 0.2,
   },
 
   /* SOCIAL ROW */
   socialRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 16,
   },
 
   /* SIGN UP FOOTER */
@@ -476,11 +550,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   signUpText: {
-    color: '#9CA3AF',
+    color: '#94A3B8',
     fontSize: 13,
   },
   signUpLinkText: {
-    color: '#FF6B00',
+    color: '#FF7A1A',
     fontSize: 13,
     fontWeight: '700',
   },

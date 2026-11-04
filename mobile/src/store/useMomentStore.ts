@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Spot, User, MOCK_USER_PROFILE } from '@/data/mockData';
+import { MomentService } from '@/services/moment.service';
 
 export interface CreatedMoment {
   id: string;
@@ -35,6 +36,7 @@ interface MomentStoreState {
   moments: CreatedMoment[];
   activeJourney: ActiveJourneyContext | null;
   setActiveJourney: (journey: ActiveJourneyContext | null) => void;
+  fetchMoments: () => Promise<void>;
   addMoment: (momentData: Omit<CreatedMoment, 'id' | 'user' | 'createdAt' | 'timeAgo' | 'likesCount' | 'commentsCount'>) => CreatedMoment;
   getMomentById: (id: string) => CreatedMoment | undefined;
 }
@@ -118,6 +120,17 @@ export const useMomentStore = create<MomentStoreState>((set, get) => ({
 
   setActiveJourney: (journey) => set({ activeJourney: journey }),
 
+  fetchMoments: async () => {
+    try {
+      const backendMoments = await MomentService.getMoments();
+      if (backendMoments && backendMoments.length > 0) {
+        set({ moments: backendMoments });
+      }
+    } catch (err) {
+      console.warn('[useMomentStore] Error fetching moments:', err);
+    }
+  },
+
   addMoment: (input) => {
     const newMomentId = `moment-${Date.now()}`;
     const newMoment: CreatedMoment = {
@@ -138,6 +151,18 @@ export const useMomentStore = create<MomentStoreState>((set, get) => ({
     set((state) => ({
       moments: [newMoment, ...state.moments],
     }));
+
+    MomentService.createMoment({
+      type: input.type,
+      mediaUri: input.mediaUri,
+      noteText: input.noteText,
+      caption: input.caption,
+      visibility: input.visibility,
+      tags: input.tags,
+      routeId: input.route?.id,
+      spotId: input.spot?.id,
+      addToStory: input.addToStory,
+    }).catch((err) => console.warn('[useMomentStore] Error saving moment to backend:', err));
 
     return newMoment;
   },

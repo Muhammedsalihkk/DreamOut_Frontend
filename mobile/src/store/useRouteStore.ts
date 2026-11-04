@@ -14,6 +14,10 @@ export interface CreateRouteInput {
   title: string;
   coverImage: string;
   shortDescription: string;
+  description?: string;
+  location?: string;
+  distance?: string;
+  duration?: string;
   category: string;
   difficulty: string;
   visibility: 'Public' | 'Followers' | 'Private';
@@ -175,22 +179,53 @@ export const useRouteStore = create<RouteStoreState>((set, get) => ({
   },
 
   updateRoute: async (id, input) => {
-    const updated = await RouteService.updateRoute(id, {
-      ...(input.title !== undefined && { title: input.title }),
-      ...(input.coverImage !== undefined && { coverImage: input.coverImage }),
-      ...(input.shortDescription !== undefined && { shortDescription: input.shortDescription, description: input.shortDescription }),
-      ...(input.category !== undefined && { category: input.category }),
-      ...(input.difficulty !== undefined && { difficulty: input.difficulty }),
-      ...(input.visibility !== undefined && { visibility: input.visibility }),
-      ...(input.places !== undefined && { places: input.places }),
-      ...(input.highlights !== undefined && { highlights: input.highlights }),
-    });
+    try {
+      const updated = await RouteService.updateRoute(id, {
+        ...(input.title !== undefined && { title: input.title }),
+        ...(input.coverImage !== undefined && { coverImage: input.coverImage }),
+        ...(input.shortDescription !== undefined && { shortDescription: input.shortDescription, description: input.description || input.shortDescription }),
+        ...(input.description !== undefined && { description: input.description }),
+        ...(input.location !== undefined && { location: input.location }),
+        ...(input.category !== undefined && { category: input.category }),
+        ...(input.difficulty !== undefined && { difficulty: input.difficulty }),
+        ...(input.visibility !== undefined && { visibility: input.visibility }),
+        ...(input.distance !== undefined && { distance: input.distance }),
+        ...(input.duration !== undefined && { duration: input.duration }),
+        ...(input.places !== undefined && { places: input.places }),
+        ...(input.highlights !== undefined && { highlights: input.highlights }),
+      });
 
-    set((state) => ({
-      routes: state.routes.map((r) => (r.id === String(id) ? updated : r)),
-    }));
+      set((state) => ({
+        routes: state.routes.map((r) => (r.id === String(id) ? updated : r)),
+      }));
 
-    return updated;
+      return updated;
+    } catch (err) {
+      console.warn('[useRouteStore] Backend update failed, updating locally:', err);
+      let fallbackRoute: DetailedRoute | undefined;
+      set((state) => {
+        const nextRoutes = state.routes.map((r) => {
+          if (r.id === String(id)) {
+            fallbackRoute = {
+              ...r,
+              ...(input.title !== undefined && { title: input.title }),
+              ...(input.coverImage !== undefined && { coverImage: input.coverImage }),
+              ...(input.shortDescription !== undefined && { shortDescription: input.shortDescription }),
+              ...(input.description !== undefined && { description: input.description || input.shortDescription }),
+              ...(input.location !== undefined && { location: input.location }),
+              ...(input.category !== undefined && { category: input.category }),
+              ...(input.difficulty !== undefined && { difficulty: input.difficulty }),
+              ...(input.visibility !== undefined && { visibility: input.visibility }),
+            };
+            return fallbackRoute;
+          }
+          return r;
+        });
+        return { routes: nextRoutes };
+      });
+      if (fallbackRoute) return fallbackRoute;
+      throw err;
+    }
   },
 
   deleteRoute: async (id: string) => {

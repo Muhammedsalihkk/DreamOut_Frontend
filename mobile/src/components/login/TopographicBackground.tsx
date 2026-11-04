@@ -9,51 +9,47 @@ export const TopographicBackground: React.FC = () => {
         height="100%"
         width="100%"
         viewBox="0 0 400 800"
+        preserveAspectRatio="xMidYMid slice"
         style={styles.svg}
       >
-        {/* Subtle contour map line paths */}
+        {/* Subtle contour map line paths - Top Elevation */}
         <Path
-          d="M -50 650 Q 100 580 250 640 T 450 610"
-          stroke="rgba(255, 107, 0, 0.15)"
-          strokeWidth="1.5"
-          fill="none"
-        />
-        <Path
-          d="M -50 680 Q 80 610 230 670 T 450 640"
-          stroke="rgba(255, 255, 255, 0.08)"
+          d="M -30 160 Q 80 120 200 170 T 430 140"
+          stroke="rgba(255, 107, 0, 0.12)"
           strokeWidth="1.2"
           fill="none"
         />
         <Path
-          d="M -50 710 Q 120 640 270 700 T 450 670"
-          stroke="rgba(255, 107, 0, 0.12)"
+          d="M -30 190 Q 110 150 230 200 T 430 170"
+          stroke="rgba(255, 255, 255, 0.05)"
           strokeWidth="1"
           fill="none"
         />
         <Path
-          d="M -50 740 Q 60 670 210 730 T 450 700"
-          stroke="rgba(255, 255, 255, 0.06)"
-          strokeWidth="1"
-          fill="none"
-        />
-        <Path
-          d="M -50 770 Q 140 700 290 760 T 450 730"
+          d="M -30 220 Q 90 180 210 230 T 430 200"
           stroke="rgba(255, 107, 0, 0.08)"
+          strokeWidth="1"
+          strokeDasharray="4,6"
+          fill="none"
+        />
+
+        {/* Lower Contour Waves */}
+        <Path
+          d="M -50 670 Q 90 620 220 670 T 450 640"
+          stroke="rgba(255, 107, 0, 0.08)"
+          strokeWidth="1"
+          fill="none"
+        />
+        <Path
+          d="M -50 710 Q 70 660 200 710 T 450 680"
+          stroke="rgba(255, 255, 255, 0.04)"
+          strokeWidth="1"
+          fill="none"
+        />
+        <Path
+          d="M -50 750 Q 110 700 240 750 T 450 720"
+          stroke="rgba(255, 107, 0, 0.06)"
           strokeWidth="0.8"
-          fill="none"
-        />
-        {/* Subtle mountain top elevation accent */}
-        <Path
-          d="M 280 500 C 310 470 340 480 370 450"
-          stroke="rgba(255, 107, 0, 0.18)"
-          strokeWidth="1"
-          strokeDasharray="4,4"
-          fill="none"
-        />
-        <Path
-          d="M 260 520 C 300 490 330 500 380 470"
-          stroke="rgba(255, 255, 255, 0.1)"
-          strokeWidth="1"
           fill="none"
         />
       </Svg>
@@ -63,6 +59,6 @@ export const TopographicBackground: React.FC = () => {
 
 const styles = StyleSheet.create({
   svg: {
-    opacity: 0.85,
+    opacity: 0.9,
   },
 });

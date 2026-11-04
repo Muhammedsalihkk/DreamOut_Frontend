@@ -4,6 +4,7 @@ export interface User {
   id: number;
   email: string;
   name: string | null;
+  avatar?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -89,5 +90,78 @@ export class AuthService {
     }
 
     return { user: userData };
+  }
+
+  static async updateUser(
+    id: number | string,
+    payload: { name?: string; avatar?: string }
+  ): Promise<User> {
+    const url = `${API_BASE_URL}/users/${id}`;
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (networkError) {
+      throw new Error('Unable to connect to backend server. Please ensure server is running.');
+    }
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to update user profile.');
+    }
+
+    return result.data;
+  }
+
+  static async getUserById(id: number | string): Promise<User> {
+    const url = `${API_BASE_URL}/users/${id}`;
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (networkError) {
+      throw new Error('Unable to connect to backend server. Please ensure server is running.');
+    }
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(result.message || 'User not found.');
+    }
+
+    return result.data;
+  }
+
+  static async forgotPassword(email: string): Promise<{ sent: boolean; message?: string }> {
+    const url = `${API_BASE_URL}/auth/forgot-password`;
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    } catch {
+      throw new Error('Unable to connect to backend server. Please ensure server is running.');
+    }
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to process password reset request.');
+    }
+    return result;
   }
 }

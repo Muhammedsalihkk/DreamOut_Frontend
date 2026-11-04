@@ -7,7 +7,8 @@ export type CloudinaryFolder =
   | 'dreamout/destinations'
   | 'dreamout/hotels'
   | 'dreamout/restaurants'
-  | 'dreamout/galleries';
+  | 'dreamout/galleries'
+  | 'dreamout/moments';
 
 export interface CloudinaryUploadOptions {
   folder?: CloudinaryFolder;

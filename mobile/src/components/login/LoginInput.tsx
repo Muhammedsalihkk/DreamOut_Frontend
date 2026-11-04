@@ -6,6 +6,7 @@ import {
   Pressable,
   View,
   TextInputProps,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ThemedText } from '@/components/themed-text';
@@ -31,7 +32,7 @@ export const LoginInput: React.FC<LoginInputProps> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(!isPassword);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<any>(null);
 
   const handleContainerPress = () => {
     inputRef.current?.focus();
@@ -52,15 +53,18 @@ export const LoginInput: React.FC<LoginInputProps> = ({
       >
         <Ionicons
           name={iconName}
-          size={18}
-          color={hasError ? '#EF4444' : isFocused ? '#FF6B00' : '#8A8F9B'}
+          size={19}
+          color={hasError ? '#EF4444' : isFocused ? '#FF6B00' : '#8E95A5'}
           style={styles.leftIcon}
         />
         <TextInput
           ref={inputRef}
-          style={styles.input}
+          style={[
+            styles.input,
+            Platform.OS === 'web' && ({ outlineStyle: 'none' } as any),
+          ]}
           placeholder={placeholder}
-          placeholderTextColor="#6F7482"
+          placeholderTextColor="#717684"
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={isPassword && !passwordVisible}
@@ -77,12 +81,12 @@ export const LoginInput: React.FC<LoginInputProps> = ({
             onPress={() => setPasswordVisible(!passwordVisible)}
             style={styles.eyeIconContainer}
             activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Ionicons
               name={passwordVisible ? 'eye-outline' : 'eye-off-outline'}
-              size={18}
-              color="#8A8F9B"
+              size={19}
+              color={isFocused ? '#E2E8F0' : '#8E95A5'}
             />
           </TouchableOpacity>
         )}
@@ -99,49 +103,49 @@ export const LoginInput: React.FC<LoginInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
+    marginVertical: 5,
     width: '100%',
   },
   label: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#B0B4BA',
-    marginBottom: 4,
+    marginBottom: 5,
     fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 17, 23, 0.85)',
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 12,
-    height: 48,
+    backgroundColor: 'rgba(15, 18, 26, 0.88)',
+    borderRadius: 14,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 14,
+    height: 50,
   },
   inputContainerFocused: {
     borderColor: '#FF6B00',
-    backgroundColor: 'rgba(20, 22, 30, 0.95)',
+    backgroundColor: 'rgba(21, 25, 36, 0.96)',
     shadowColor: '#FF6B00',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 3,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
   },
   inputContainerError: {
     borderColor: '#EF4444',
     backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
   leftIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   input: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 14,
-    paddingVertical: 8,
+    fontSize: 14.5,
+    paddingVertical: 10,
   },
   eyeIconContainer: {
-    padding: 4,
+    padding: 6,
   },
   errorRow: {
     flexDirection: 'row',
@@ -150,12 +154,11 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   errorIcon: {
-    marginRight: 4,
+    marginRight: 5,
   },
   errorText: {
     color: '#EF4444',
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '500',
   },
 });
-

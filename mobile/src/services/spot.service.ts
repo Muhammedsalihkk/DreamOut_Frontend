@@ -18,6 +18,7 @@ export interface BackendSpot {
     id: number;
     name: string | null;
     email?: string;
+    avatar?: string | null;
   };
 }
 
@@ -50,11 +51,19 @@ export class SpotService {
             id: String(backendSpot.user.id),
             name: backendSpot.user.name || 'Explorer',
             username: (backendSpot.user.name || 'explorer').toLowerCase().replace(/\s+/g, '_'),
+            avatar: backendSpot.user.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+          }
+        : backendSpot.userId
+        ? {
+            id: String(backendSpot.userId),
+            name: 'Explorer',
+            username: 'explorer',
             avatar:
-              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
           }
         : undefined,
-    };
+      userId: backendSpot.userId,
+    } as any;
   }
 
   /**

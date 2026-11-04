@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   SafeAreaView,
@@ -20,8 +20,11 @@ import {
   Route,
   Spot,
   Experience,
+  UserProfile,
 } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { AuthService, User as BackendUser } from '@/services/auth.service';
 
 import { OtherProfileHeader } from '@/components/profile/OtherProfileHeader';
 import { ProfileStats } from '@/components/profile/ProfileStats';
@@ -33,19 +36,109 @@ export default function OtherUserProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<ProfileTabType>('routes');
+  const authUser = useAuthStore((state) => state.user);
+  const [fetchedUser, setFetchedUser] = useState<BackendUser | null>(null);
+
+  useEffect(() => {
+    if (authUser && (String(authUser.id) === String(id) || authUser.name === id)) {
+      router.replace('/(tabs)/profile');
+    }
+  }, [id, authUser]);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (id) {
+      AuthService.getUserById(id)
+        .then((user) => {
+          if (isMounted) setFetchedUser(user);
+        })
+        .catch(() => {
+          // If non-numeric ID or not found in backend, fallback to storeRoutes
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   const storeSpots = useRouteStore((state) => state.spots);
+  const storeRoutes = useRouteStore((state) => state.routes);
+
   const userCreatedSpots = useMemo(() => {
     return storeSpots.filter(
-      (s) => s.creator?.id === id || String(s.creator?.id) === String(id)
+      (s) =>
+        s.creator?.id === id ||
+        String(s.creator?.id) === String(id) ||
+        String((s as any).userId) === String(id) ||
+        (fetchedUser?.name && s.creator?.name === fetchedUser.name)
     );
-  }, [storeSpots, id]);
+  }, [storeSpots, id, fetchedUser]);
 
-  const profile = {
-    ...MOCK_OTHER_USER_PROFILE,
-    spotCount: userCreatedSpots.length,
-  };
-  const userCreatedRoutes = MOCK_OTHER_USER_ROUTES;
+  const userCreatedRoutes: Route[] = useMemo(() => {
+    const filtered = storeRoutes.filter(
+      (r) =>
+        r.creator?.id === id ||
+        String(r.creator?.id) === String(id) ||
+        String((r as any).userId) === String(id) ||
+        (fetchedUser?.name && r.creator?.name === fetchedUser.name)
+    );
+
+    if (filtered.length === 0 && id === 'u2') {
+      return MOCK_OTHER_USER_ROUTES;
+    }
+
+    return filtered.map((r) => ({
+      id: String(r.id),
+      title: r.title,
+      image:
+        r.coverImage ||
+        (r.photos && r.photos[0]) ||
+        'https://images.unsplash.com/photo-1596402184320-417e7178b2cd?auto=format&fit=crop&w=1200&q=80',
+      creator: r.creator || {
+        id: String(id),
+        name: fetchedUser?.name || 'Explorer',
+        username: fetchedUser?.name ? fetchedUser.name.toLowerCase().replace(/\s+/g, '_') : 'explorer',
+        avatar:
+          fetchedUser?.avatar ||
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      },
+      description: r.description || r.shortDescription || '',
+      location: r.location,
+      category: r.category,
+      likesCount: r.likesCount || 0,
+      commentsCount: r.commentsCount || 0,
+      completedCount: r.exploredCount || 0,
+      timeAgo: r.postedTimeAgo || 'Recently',
+      imageCount: r.imageCount || (r.photos ? r.photos.length : 1),
+    }));
+  }, [storeRoutes, id, fetchedUser]);
+
+  const profile: UserProfile = useMemo(() => {
+    const matchedCreator = storeRoutes.find(
+      (r) =>
+        r.creator?.id === id ||
+        String(r.creator?.id) === String(id) ||
+        String((r as any).userId) === String(id)
+    )?.creator;
+
+    const name = fetchedUser?.name || matchedCreator?.name || MOCK_OTHER_USER_PROFILE.name;
+    const avatar =
+      fetchedUser?.avatar ||
+      matchedCreator?.avatar ||
+      MOCK_OTHER_USER_PROFILE.avatar;
+    const username = name.toLowerCase().replace(/\s+/g, '_');
+
+    return {
+      ...MOCK_OTHER_USER_PROFILE,
+      id: String(id || 'u2'),
+      name,
+      username,
+      avatar,
+      routeCount: userCreatedRoutes.length,
+      spotCount: userCreatedSpots.length,
+    };
+  }, [fetchedUser, storeRoutes, id, userCreatedRoutes.length, userCreatedSpots.length]);
+
   const userExperiences = MOCK_OTHER_USER_EXPERIENCES;
 
   const handleRoutePress = (route: Route) => {
@@ -62,7 +155,7 @@ export default function OtherUserProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}

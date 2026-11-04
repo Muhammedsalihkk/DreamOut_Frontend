@@ -286,20 +286,47 @@ export const GoogleMapLocationPickerModal: React.FC<GoogleMapLocationPickerModal
           {/* Geocoding Results Dropdown */}
           {searchResults.length > 0 && (
             <View style={styles.searchResultsContainer}>
-              <Text style={styles.searchResultsHeader}>Suggested Matches:</Text>
-              {searchResults.map((item) => (
-                <TouchableOpacity
-                  key={item.place_id}
-                  style={styles.searchResultItem}
-                  activeOpacity={0.7}
-                  onPress={() => handleSelectSearchResult(item)}
-                >
-                  <Ionicons name="location-sharp" size={16} color="#FF6B00" style={{ marginRight: 8 }} />
-                  <Text style={styles.searchResultText} numberOfLines={2}>
-                    {item.display_name}
-                  </Text>
+              <View style={styles.searchResultsHeaderRow}>
+                <Text style={styles.searchResultsHeader}>Suggested Places ({searchResults.length}):</Text>
+                <TouchableOpacity onPress={() => setSearchResults([])} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close" size={16} color="#8A8F9B" />
                 </TouchableOpacity>
-              ))}
+              </View>
+              <ScrollView
+                style={styles.searchResultsScroll}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
+              >
+                {searchResults.map((item, index) => (
+                  <TouchableOpacity
+                    key={`${item.place_id}-${index}`}
+                    style={[
+                      styles.searchResultItem,
+                      index === searchResults.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => handleSelectSearchResult(item)}
+                  >
+                    <Ionicons name="location-sharp" size={16} color="#FF6B00" style={{ marginRight: 8, marginTop: 2 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.searchResultTitle} numberOfLines={1}>
+                        {item.name || item.display_name.split(',')[0]}
+                      </Text>
+                      <Text style={styles.searchResultText} numberOfLines={2}>
+                        {item.display_name}
+                      </Text>
+                    </View>
+                    {item.distanceKm !== undefined && (
+                      <Text style={styles.searchResultDist}>
+                        {item.distanceKm < 1
+                          ? `${Math.round(item.distanceKm * 1000)}m`
+                          : `${item.distanceKm.toFixed(1)}km`}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
 
@@ -502,19 +529,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchResultsContainer: {
-    backgroundColor: '#161922',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 0, 0.3)',
+    backgroundColor: '#161924',
+    borderWidth: 1.5,
+    borderColor: '#FF6B00',
     borderRadius: 14,
     padding: 10,
     marginBottom: 10,
-    maxHeight: 180,
+    maxHeight: 240,
+    overflow: 'hidden',
+    zIndex: 9999,
+    elevation: 25,
+  },
+  searchResultsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   searchResultsHeader: {
     color: '#FF6B00',
     fontSize: 11,
     fontWeight: '700',
-    marginBottom: 6,
+  },
+  searchResultsScroll: {
+    maxHeight: 180,
   },
   searchResultItem: {
     flexDirection: 'row',
@@ -523,10 +564,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  searchResultText: {
-    color: '#E5E7EB',
+  searchResultTitle: {
+    color: '#FFFFFF',
     fontSize: 12,
-    flex: 1,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  searchResultText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  searchResultDist: {
+    color: '#FF8833',
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 6,
   },
   presetChipsSection: {
     marginBottom: 12,

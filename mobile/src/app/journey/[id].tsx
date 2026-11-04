@@ -58,7 +58,7 @@ export default function JourneyDetailsScreen() {
   const route: DetailedRoute = storeRoute || MOCK_DETAILED_ROUTE;
 
   // Journey Data mapped from backend if available
-  const journey: JourneyDetailsData = useMemo(() => {
+  const journey: any = useMemo(() => {
     if (!backendJourney) return MOCK_JOURNEY_DETAILS;
 
     const mappedMoments: JourneyMomentItem[] = (backendJourney.moments || []).map((m: any, idx: number) => ({
@@ -78,7 +78,9 @@ export default function JourneyDetailsScreen() {
     }));
 
     return {
+      ...MOCK_JOURNEY_DETAILS,
       id: String(backendJourney.id),
+      routeId: String(backendJourney.routeId || route.id),
       routeTitle: backendJourney.route?.title || route.title,
       routeLocation: backendJourney.route?.location || route.location,
       totalDistance: route.distance || '12 km',
@@ -153,7 +155,7 @@ export default function JourneyDetailsScreen() {
   };
 
   // Filter moments by active tab
-  const filteredMoments = journey.moments.filter((m) => {
+  const filteredMoments = journey.moments.filter((m: any) => {
     if (activeTab === 'photos') return m.type === 'photo' || m.type === 'collage';
     if (activeTab === 'videos') return m.type === 'video';
     if (activeTab === 'notes') return m.type === 'note';

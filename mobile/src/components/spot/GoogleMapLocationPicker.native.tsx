@@ -10,6 +10,7 @@ import {
   Modal,
   SafeAreaView,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
@@ -385,24 +386,67 @@ export const GoogleMapLocationPicker: React.FC<GoogleMapLocationPickerProps> = (
       {/* Search Suggestions Dropdown */}
       {suggestions.length > 0 && (
         <View style={styles.suggestionsCard}>
-          {suggestions.map((item) => (
-            <TouchableOpacity
-              key={item.place_id}
-              style={styles.suggestionItem}
-              activeOpacity={0.7}
-              onPress={() => handleSelectSuggestion(item)}
-            >
-              <Ionicons
-                name="location-sharp"
-                size={16}
-                color="#FF6B00"
-                style={{ marginRight: 8, marginTop: 2 }}
-              />
-              <Text style={styles.suggestionText} numberOfLines={2}>
-                {item.display_name}
+          <View style={styles.suggestionsHeader}>
+            <View style={styles.suggestionsHeaderLeft}>
+              <Ionicons name="compass" size={13} color="#FF6B00" />
+              <Text style={styles.suggestionsHeaderText}>
+                PLACES NEARBY ({suggestions.length})
               </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setSuggestions([])}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={15} color="#8A8F9B" />
             </TouchableOpacity>
-          ))}
+          </View>
+          <ScrollView
+            style={styles.inlineSuggestionsScroll}
+            contentContainerStyle={styles.suggestionsScrollContent}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+          >
+            {suggestions.map((item, index) => (
+              <TouchableOpacity
+                key={`${item.place_id}-${index}`}
+                style={[
+                  styles.suggestionItem,
+                  index === suggestions.length - 1 && styles.suggestionItemLast,
+                ]}
+                activeOpacity={0.7}
+                onPress={() => handleSelectSuggestion(item)}
+              >
+                <View style={styles.suggestionIconBox}>
+                  <Ionicons name="location-sharp" size={16} color="#FF6B00" />
+                </View>
+                <View style={styles.suggestionContent}>
+                  <Text style={styles.suggestionTitle} numberOfLines={1}>
+                    {item.name || item.display_name.split(',')[0]}
+                  </Text>
+                  <Text style={styles.suggestionSubtitle} numberOfLines={2}>
+                    {item.display_name}
+                  </Text>
+                  {item.distanceKm !== undefined && (
+                    <View style={styles.distanceBadge}>
+                      <Ionicons name="navigate-outline" size={10} color="#FF6B00" />
+                      <Text style={styles.distanceBadgeText}>
+                        {item.distanceKm < 1
+                          ? `${Math.round(item.distanceKm * 1000)} m away`
+                          : `${item.distanceKm.toFixed(1)} km away`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={14}
+                  color="#6B7280"
+                  style={{ alignSelf: 'center', marginLeft: 6 }}
+                />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -601,7 +645,7 @@ export const GoogleMapLocationPicker: React.FC<GoogleMapLocationPickerProps> = (
             <Ionicons name="search" size={16} color="#FF6B00" style={{ marginRight: 8 }} />
             <TextInput
               style={styles.modalSearchInput}
-              placeholder="Search location (e.g. HiLITE Mall, Calicut)..."
+              placeholder="Search location (e.g. Edele Hotel, Calicut)..."
               placeholderTextColor="#6B7280"
               value={searchQuery}
               onChangeText={(txt) => {
@@ -618,25 +662,97 @@ export const GoogleMapLocationPicker: React.FC<GoogleMapLocationPickerProps> = (
                   }, 400);
                 }
               }}
+              returnKeyType="search"
               onSubmitEditing={() => handleSearchSubmit()}
             />
+            {isSearching ? (
+              <ActivityIndicator size="small" color="#FF6B00" style={{ marginLeft: 6 }} />
+            ) : searchQuery.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery('');
+                  setSuggestions([]);
+                  setSearchError(null);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={18} color="#8A8F9B" />
+              </TouchableOpacity>
+            ) : null}
           </View>
+
+          {/* Modal Search Error */}
+          {searchError && (
+            <View style={styles.modalSearchErrorWrapper}>
+              <Ionicons name="alert-circle-outline" size={14} color="#F87171" />
+              <Text style={styles.modalSearchErrorText}>{searchError}</Text>
+            </View>
+          )}
 
           {/* Modal Suggestions List */}
           {suggestions.length > 0 && (
             <View style={styles.modalSuggestionsCard}>
-              {suggestions.map((item) => (
-                <TouchableOpacity
-                  key={item.place_id}
-                  style={styles.suggestionItem}
-                  onPress={() => handleSelectSuggestion(item)}
-                >
-                  <Ionicons name="location-sharp" size={16} color="#FF6B00" style={{ marginRight: 8 }} />
-                  <Text style={styles.suggestionText} numberOfLines={2}>
-                    {item.display_name}
+              <View style={styles.suggestionsHeader}>
+                <View style={styles.suggestionsHeaderLeft}>
+                  <Ionicons name="compass" size={13} color="#FF6B00" />
+                  <Text style={styles.suggestionsHeaderText}>
+                    SUGGESTED PLACES ({suggestions.length})
                   </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setSuggestions([])}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close" size={16} color="#8A8F9B" />
                 </TouchableOpacity>
-              ))}
+              </View>
+              <ScrollView
+                style={styles.modalSuggestionsScroll}
+                contentContainerStyle={styles.suggestionsScrollContent}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
+              >
+                {suggestions.map((item, index) => (
+                  <TouchableOpacity
+                    key={`${item.place_id}-${index}`}
+                    style={[
+                      styles.suggestionItem,
+                      index === suggestions.length - 1 && styles.suggestionItemLast,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => handleSelectSuggestion(item)}
+                  >
+                    <View style={styles.suggestionIconBox}>
+                      <Ionicons name="location-sharp" size={16} color="#FF6B00" />
+                    </View>
+                    <View style={styles.suggestionContent}>
+                      <Text style={styles.suggestionTitle} numberOfLines={1}>
+                        {item.name || item.display_name.split(',')[0]}
+                      </Text>
+                      <Text style={styles.suggestionSubtitle} numberOfLines={2}>
+                        {item.display_name}
+                      </Text>
+                      {item.distanceKm !== undefined && (
+                        <View style={styles.distanceBadge}>
+                          <Ionicons name="navigate-outline" size={10} color="#FF6B00" />
+                          <Text style={styles.distanceBadgeText}>
+                            {item.distanceKm < 1
+                              ? `${Math.round(item.distanceKm * 1000)} m away`
+                              : `${item.distanceKm.toFixed(1)} km away`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color="#6B7280"
+                      style={{ alignSelf: 'center', marginLeft: 6 }}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
 
@@ -770,20 +886,96 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   suggestionsCard: {
-    backgroundColor: '#161922',
-    borderWidth: 1,
+    backgroundColor: '#161924',
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 107, 0, 0.4)',
-    borderRadius: 12,
-    padding: 8,
-    marginBottom: 10,
-    maxHeight: 160,
+    borderRadius: 14,
+    marginBottom: 12,
+    overflow: 'hidden',
+    zIndex: 9999,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+  },
+  inlineSuggestionsScroll: {
+    maxHeight: 220,
+  },
+  suggestionsScrollContent: {
+    paddingBottom: 4,
+  },
+  suggestionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  suggestionsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  suggestionsHeaderText: {
+    color: '#FF6B00',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   suggestionItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#161924',
+  },
+  suggestionItemLast: {
+    borderBottomWidth: 0,
+  },
+  suggestionIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  suggestionContent: {
+    flex: 1,
+  },
+  suggestionTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  suggestionSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  distanceBadgeText: {
+    color: '#FF8833',
+    fontSize: 10,
+    fontWeight: '700',
   },
   suggestionText: {
     color: '#E5E7EB',
@@ -997,32 +1189,61 @@ const styles = StyleSheet.create({
   modalSearchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161922',
+    backgroundColor: '#161924',
     marginHorizontal: 16,
     marginVertical: 10,
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 42,
+    height: 44,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    zIndex: 10,
   },
   modalSearchInput: {
     flex: 1,
     color: '#FFFFFF',
     fontSize: 13,
+    paddingVertical: 0,
+  },
+  modalSearchErrorWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    zIndex: 10,
+  },
+  modalSearchErrorText: {
+    color: '#F87171',
+    fontSize: 12,
+    flex: 1,
   },
   modalSuggestionsCard: {
     position: 'absolute',
-    top: 110,
+    top: 112,
     left: 16,
     right: 16,
-    backgroundColor: '#161922',
-    zIndex: 100,
-    borderRadius: 12,
-    padding: 8,
-    borderWidth: 1,
+    backgroundColor: '#161924',
+    zIndex: 9999,
+    elevation: 30,
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: '#FF6B00',
-    maxHeight: 180,
+    maxHeight: 280,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+  },
+  modalSuggestionsScroll: {
+    maxHeight: 236,
   },
   modalMapWrapper: {
     flex: 1,

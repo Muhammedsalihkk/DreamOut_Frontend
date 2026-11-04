@@ -214,6 +214,7 @@ export interface DetailedRoute {
   category?: string;
   difficulty?: string;
   visibility?: 'Public' | 'Followers' | 'Private';
+  userId?: number;
 }
 
 export interface Spot {

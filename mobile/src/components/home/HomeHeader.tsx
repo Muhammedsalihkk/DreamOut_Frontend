@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface HomeHeaderProps {
   onProfilePress?: () => void;
@@ -13,6 +14,10 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   onNotificationPress,
 }) => {
   const router = useRouter();
+  const authUser = useAuthStore((state) => state.user);
+  const avatarUri =
+    authUser?.avatar ||
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
 
   const handleNotificationTap = () => {
     if (onNotificationPress) {
@@ -60,7 +65,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             <Image
               source={{
-                uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+                uri: avatarUri,
               }}
               style={styles.avatarImage}
             />

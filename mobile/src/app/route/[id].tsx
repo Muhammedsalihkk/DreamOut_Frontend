@@ -26,9 +26,12 @@ import {
 } from '@/data/mockData';
 import { useRouteStore } from '@/store/useRouteStore';
 import { RouteService } from '@/services/route.service';
+import { SavedService } from '@/services/saved.service';
+import { ConnectionService } from '@/services/connection.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useJourneyStore } from '@/store/useJourneyStore';
 import { RouteCommentsModal } from '@/components/route/RouteCommentsModal';
+import { EditRouteModal } from '@/components/route/EditRouteModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -81,6 +84,7 @@ export default function RouteDetailsScreen() {
   const [isCommentsModalVisible, setIsCommentsModalVisible] = useState(false);
   const [routeCommentsCount, setRouteCommentsCount] = useState(route?.commentsCount || 0);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [activePhotoUrl, setActivePhotoUrl] = useState<string>(route?.coverImage || '');
   const [activePhotoTitle, setActivePhotoTitle] = useState<string>('');
 
@@ -96,9 +100,11 @@ export default function RouteDetailsScreen() {
 
   // Check if current user is the route creator
   const isCreator = Boolean(
-    authUser &&
-    route &&
-    (String(route.creator?.id) === String(authUser.id) || route.creator?.name === authUser.name)
+    route && (
+      (authUser?.id && (String(route.creator?.id) === String(authUser.id) || String((route as any).userId) === String(authUser.id))) ||
+      (authUser?.name && route.creator?.name === authUser.name) ||
+      (!authUser && route.creator?.id === 'u1')
+    )
   );
 
   const handleDeleteRoute = () => {
@@ -135,8 +141,10 @@ export default function RouteDetailsScreen() {
   };
 
   const handleToggleSave = () => {
+    if (!route) return;
     const nextSaved = !isSaved;
     setIsSaved(nextSaved);
+    SavedService.toggleSaveRoute(route.id).catch(() => {});
     Alert.alert(
       nextSaved ? 'Route Saved' : 'Route Removed',
       nextSaved
@@ -154,6 +162,7 @@ export default function RouteDetailsScreen() {
   };
 
   const handleShare = async () => {
+    if (!route) return;
     try {
       await Share.share({
         message: `Check out this route on DreamOut: ${route.title} (${route.location})`,
@@ -164,7 +173,12 @@ export default function RouteDetailsScreen() {
   };
 
   const handleCreatorPress = () => {
-    router.push(`/user/${route.creator.id}` as any);
+    if (!route) return;
+    if (isCreator) {
+      router.push('/(tabs)/profile');
+    } else {
+      router.push(`/user/${route.creator.id}` as any);
+    }
   };
 
   const handleSpotPress = (place: RoutePlace) => {
@@ -266,13 +280,22 @@ export default function RouteDetailsScreen() {
 
             <View style={styles.topRightIcons}>
               {isCreator && (
-                <TouchableOpacity
-                  style={[styles.circleIconButton, styles.deleteIconButton]}
-                  activeOpacity={0.8}
-                  onPress={handleDeleteRoute}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={[styles.circleIconButton, styles.editIconButton]}
+                    activeOpacity={0.8}
+                    onPress={() => setIsEditModalVisible(true)}
+                  >
+                    <Ionicons name="pencil" size={17} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.circleIconButton, styles.deleteIconButton]}
+                    activeOpacity={0.8}
+                    onPress={handleDeleteRoute}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                </>
               )}
 
               <TouchableOpacity
@@ -368,39 +391,72 @@ export default function RouteDetailsScreen() {
               activeOpacity={0.8}
               onPress={handleCreatorPress}
             >
-              <Image source={{ uri: route.creator.avatar }} style={styles.creatorAvatar} />
+              <Image
+                source={{
+                  uri:
+                    isCreator && authUser?.avatar
+                      ? authUser.avatar
+                      : route.creator.avatar,
+                }}
+                style={styles.creatorAvatar}
+              />
               <View style={styles.creatorInfo}>
                 <View style={styles.creatorNameRow}>
                   <Text style={styles.creatorName} numberOfLines={1}>
-                    {route.creator.name}
+                    {isCreator && authUser?.name ? authUser.name : route.creator.name}
                   </Text>
                   {route.creator.isVerified && (
                     <Ionicons name="checkmark-circle" size={14} color="#FF6B00" style={{ marginLeft: 3 }} />
                   )}
                 </View>
                 <Text style={styles.creatorHandle}>
-                  @{route.creator.username} • Route Creator
+                  @{isCreator && authUser?.name
+                    ? authUser.name.toLowerCase().replace(/\s+/g, '_')
+                    : route.creator.username} • Route Creator
                 </Text>
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.creatorFollowButton,
-                isFollowingCreator && styles.creatorFollowingButton,
-              ]}
-              activeOpacity={0.8}
-              onPress={() => setIsFollowingCreator((prev) => !prev)}
-            >
-              <Text
+            {isCreator ? (
+              <View style={styles.creatorAuthorActions}>
+                <View style={styles.creatorYouBadge}>
+                  <Ionicons name="person" size={12} color="#FF6B00" />
+                  <Text style={styles.creatorYouText}>You (Author)</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.creatorEditButton}
+                  activeOpacity={0.8}
+                  onPress={() => setIsEditModalVisible(true)}
+                >
+                  <Ionicons name="pencil" size={12} color="#FFFFFF" />
+                  <Text style={styles.creatorEditText}>Edit</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
                 style={[
-                  styles.creatorFollowText,
-                  isFollowingCreator && styles.creatorFollowingText,
+                  styles.creatorFollowButton,
+                  isFollowingCreator && styles.creatorFollowingButton,
                 ]}
+                activeOpacity={0.8}
+                onPress={() => {
+                  const nextState = !isFollowingCreator;
+                  setIsFollowingCreator(nextState);
+                  if (route.creator?.id) {
+                    ConnectionService.toggleFollow(route.creator.id).catch(() => {});
+                  }
+                }}
               >
-                {isFollowingCreator ? 'Following' : 'Follow'}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.creatorFollowText,
+                    isFollowingCreator && styles.creatorFollowingText,
+                  ]}
+                >
+                  {isFollowingCreator ? 'Following' : 'Follow'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -628,6 +684,7 @@ export default function RouteDetailsScreen() {
         visible={isCommentsModalVisible}
         onClose={() => setIsCommentsModalVisible(false)}
         routeTitle={route.title}
+        routeId={route.id}
         initialCommentsCount={routeCommentsCount}
         onCommentsCountChange={setRouteCommentsCount}
       />
@@ -662,6 +719,17 @@ export default function RouteDetailsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Route Modal */}
+      <EditRouteModal
+        visible={isEditModalVisible}
+        route={route}
+        onClose={() => setIsEditModalVisible(false)}
+        onSaveSuccess={(updated) => {
+          setBackendRoute(updated);
+          setIsEditModalVisible(false);
+        }}
+      />
     </View>
   );
 }
@@ -710,6 +778,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  editIconButton: {
+    backgroundColor: 'rgba(255, 107, 0, 0.25)',
+    borderColor: '#FF6B00',
+  },
+  deleteIconButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: 'rgba(239, 68, 68, 0.5)',
   },
 
   /* Hero Info Content */
@@ -889,6 +965,41 @@ const styles = StyleSheet.create({
   creatorFollowingText: {
     color: '#9CA3AF',
     fontWeight: '600',
+  },
+  creatorAuthorActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  creatorYouBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.3)',
+  },
+  creatorYouText: {
+    color: '#FF6B00',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  creatorEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FF6B00',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9,
+  },
+  creatorEditText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   /* Description */
@@ -1166,10 +1277,6 @@ const styles = StyleSheet.create({
   imageViewerFullPhoto: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT * 0.75,
-  },
-  deleteIconButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: 'rgba(239, 68, 68, 0.5)',
   },
   centerContainer: {
     justifyContent: 'center',

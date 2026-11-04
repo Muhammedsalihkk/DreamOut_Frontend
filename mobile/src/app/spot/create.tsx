@@ -77,7 +77,7 @@ export default function CreateSpotPage() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0B0E" />
+      <StatusBar barStyle="light-content" />
 
       {/* Header */}
       <View style={styles.headerRow}>

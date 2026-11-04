@@ -10,6 +10,7 @@ import {
   Alert,
   StatusBar,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -30,6 +31,7 @@ import { ProfileStats } from '@/components/profile/ProfileStats';
 import { ProfileTabs, ProfileTabType } from '@/components/profile/ProfileTabs';
 import { ExperienceCard } from '@/components/profile/ExperienceCard';
 import { ProfileEmptyState } from '@/components/profile/ProfileEmptyState';
+import { EditRouteModal } from '@/components/route/EditRouteModal';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -37,9 +39,14 @@ export default function ProfileScreen() {
 
   const storeSpots = useRouteStore((state) => state.spots);
   const storeRoutes = useRouteStore((state) => state.routes);
+  const deleteRoute = useRouteStore((state) => state.deleteRoute);
   const fetchFromBackend = useRouteStore((state) => state.fetchFromBackend);
   const isLoading = useRouteStore((state) => state.isLoading);
   const authUser = useAuthStore((state) => state.user);
+
+  const [selectedRouteForOptions, setSelectedRouteForOptions] = useState<Route | null>(null);
+  const [isRouteOptionsVisible, setIsRouteOptionsVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   const userJourneys = useJourneyStore((state) => state.userJourneys);
   const loadUserJourneys = useJourneyStore((state) => state.loadUserJourneys);
@@ -48,18 +55,49 @@ export default function ProfileScreen() {
     loadUserJourneys();
   }, []);
 
-  const createdSpots = storeSpots;
+  const createdSpots: Spot[] = useMemo(() => {
+    const currentUserId = authUser?.id ? String(authUser.id) : undefined;
+    const currentUserName = authUser?.name;
+
+    return storeSpots.filter((s) => {
+      if (currentUserId) {
+        if (s.creator?.id && String(s.creator.id) === currentUserId) return true;
+        if ((s as any).userId && String((s as any).userId) === currentUserId) return true;
+      }
+      if (currentUserName && s.creator?.name) {
+        if (s.creator.name.trim().toLowerCase() === currentUserName.trim().toLowerCase()) return true;
+      }
+      if (!currentUserId && !currentUserName) {
+        return (
+          s.creator?.id === MOCK_USER_PROFILE.id ||
+          s.creator?.id === 'u1' ||
+          s.creator?.name === MOCK_USER_PROFILE.name
+        );
+      }
+      return false;
+    });
+  }, [storeSpots, authUser]);
 
   const createdRoutes: Route[] = useMemo(() => {
     const currentUserId = authUser?.id ? String(authUser.id) : undefined;
     const currentUserName = authUser?.name;
 
     const filtered = storeRoutes.filter((r) => {
-      if (!currentUserId && !currentUserName) return true;
-      return (
-        (currentUserId && String(r.creator?.id) === currentUserId) ||
-        (currentUserName && r.creator?.name === currentUserName)
-      );
+      if (currentUserId) {
+        if (r.creator?.id && String(r.creator.id) === currentUserId) return true;
+        if ((r as any).userId && String((r as any).userId) === currentUserId) return true;
+      }
+      if (currentUserName && r.creator?.name) {
+        if (r.creator.name.trim().toLowerCase() === currentUserName.trim().toLowerCase()) return true;
+      }
+      if (!currentUserId && !currentUserName) {
+        return (
+          r.creator?.id === MOCK_USER_PROFILE.id ||
+          r.creator?.id === 'u1' ||
+          r.creator?.name === MOCK_USER_PROFILE.name
+        );
+      }
+      return false;
     });
 
     return filtered.map((r) => ({
@@ -86,7 +124,7 @@ export default function ProfileScreen() {
     }));
   }, [storeRoutes, authUser]);
 
-  const userExperiences: Experience[] = useMemo(() => {
+  const userExperiences: any[] = useMemo(() => {
     if (userJourneys && userJourneys.length > 0) {
       return userJourneys.map((j) => ({
         id: String(j.id),
@@ -118,6 +156,7 @@ export default function ProfileScreen() {
   const profile = {
     ...MOCK_USER_PROFILE,
     name: authUser?.name || MOCK_USER_PROFILE.name,
+    avatar: authUser?.avatar || MOCK_USER_PROFILE.avatar,
     spotCount: createdSpots.length,
     routeCount: createdRoutes.length,
     experienceCount: userExperiences.length,
@@ -133,6 +172,45 @@ export default function ProfileScreen() {
 
   const handleExperiencePress = (exp: Experience) => {
     router.push(`/journey/${exp.id || 'j1'}` as any);
+  };
+
+  const handleOpenRouteOptions = (route: Route) => {
+    setSelectedRouteForOptions(route);
+    setIsRouteOptionsVisible(true);
+  };
+
+  const handleTriggerEdit = () => {
+    setIsRouteOptionsVisible(false);
+    setTimeout(() => {
+      setIsEditModalVisible(true);
+    }, 250);
+  };
+
+  const handleTriggerDelete = () => {
+    if (!selectedRouteForOptions) return;
+    const target = selectedRouteForOptions;
+    setIsRouteOptionsVisible(false);
+
+    Alert.alert(
+      'Delete Route',
+      `Are you sure you want to delete "${target.title}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deleteRoute(target.id);
+            if (success) {
+              Alert.alert('Deleted', 'Route deleted successfully.');
+              fetchFromBackend();
+            } else {
+              Alert.alert('Notice', 'Failed to delete route on server.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleRefresh = async () => {
@@ -219,7 +297,7 @@ export default function ProfileScreen() {
                       <TouchableOpacity
                         style={styles.moreOverlayButton}
                         activeOpacity={0.7}
-                        onPress={() => handleRoutePress(route)}
+                        onPress={() => handleOpenRouteOptions(route)}
                       >
                         <Ionicons name="ellipsis-horizontal" size={14} color="#FFFFFF" />
                       </TouchableOpacity>
@@ -378,6 +456,106 @@ export default function ProfileScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Route Options Action Sheet Modal */}
+      <Modal
+        visible={isRouteOptionsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsRouteOptionsVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setIsRouteOptionsVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.actionSheetContainer}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.sheetHandle} />
+
+            {selectedRouteForOptions && (
+              <View style={styles.sheetHeader}>
+                <Image
+                  source={{ uri: selectedRouteForOptions.image }}
+                  style={styles.sheetRouteThumb}
+                  resizeMode="cover"
+                />
+                <View style={styles.sheetHeaderText}>
+                  <Text style={styles.sheetRouteTitle} numberOfLines={1}>
+                    {selectedRouteForOptions.title}
+                  </Text>
+                  <Text style={styles.sheetRouteSubtitle} numberOfLines={1}>
+                    {selectedRouteForOptions.location || selectedRouteForOptions.category || 'Created Route'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.sheetDivider} />
+
+            {/* Option 1: Edit Route */}
+            <TouchableOpacity
+              style={styles.sheetOption}
+              activeOpacity={0.7}
+              onPress={handleTriggerEdit}
+            >
+              <View style={[styles.sheetOptionIconBox, { backgroundColor: 'rgba(255, 107, 0, 0.15)' }]}>
+                <Ionicons name="pencil" size={18} color="#FF6B00" />
+              </View>
+              <View style={styles.sheetOptionContent}>
+                <Text style={styles.sheetOptionTitle}>Edit Route</Text>
+                <Text style={styles.sheetOptionDesc}>
+                  Update name, cover photo, category & details
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#8A8F9B" />
+            </TouchableOpacity>
+
+            {/* Option 2: Delete Route */}
+            <TouchableOpacity
+              style={styles.sheetOption}
+              activeOpacity={0.7}
+              onPress={handleTriggerDelete}
+            >
+              <View style={[styles.sheetOptionIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+              </View>
+              <View style={styles.sheetOptionContent}>
+                <Text style={[styles.sheetOptionTitle, { color: '#EF4444' }]}>
+                  Delete Route
+                </Text>
+                <Text style={styles.sheetOptionDesc}>
+                  Permanently remove this route from DreamOut
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#8A8F9B" />
+            </TouchableOpacity>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              style={styles.sheetCancelButton}
+              activeOpacity={0.8}
+              onPress={() => setIsRouteOptionsVisible(false)}
+            >
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Edit Route Modal */}
+      <EditRouteModal
+        visible={isEditModalVisible}
+        route={selectedRouteForOptions}
+        onClose={() => setIsEditModalVisible(false)}
+        onSaveSuccess={() => {
+          setIsEditModalVisible(false);
+          fetchFromBackend();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -600,5 +778,100 @@ const styles = StyleSheet.create({
   createDashedSubtitle: {
     color: '#9CA3AF',
     fontSize: 11.5,
+  },
+
+  /* Action Sheet Styles */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  actionSheetContainer: {
+    backgroundColor: '#12141C',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#252836',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 36,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#353945',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  sheetRouteThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#1C1F2A',
+  },
+  sheetHeaderText: {
+    flex: 1,
+  },
+  sheetRouteTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  sheetRouteSubtitle: {
+    color: '#8A8F9B',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sheetDivider: {
+    height: 1,
+    backgroundColor: '#202430',
+    marginVertical: 12,
+  },
+  sheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 14,
+  },
+  sheetOptionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetOptionContent: {
+    flex: 1,
+  },
+  sheetOptionTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  sheetOptionDesc: {
+    color: '#8A8F9B',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sheetCancelButton: {
+    backgroundColor: '#1C1F2B',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#2A2D3A',
+  },
+  sheetCancelText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
